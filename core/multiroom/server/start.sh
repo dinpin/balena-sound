@@ -29,8 +29,17 @@ fi
 # Start snapserver
 if [[ "$MODE" == "MULTI_ROOM" ]]; then
   echo "Starting multi-room server..."
-  /usr/bin/snapserver
+  /usr/bin/snapserver &
 else
   echo "Multi-room server disabled. Exiting..."
   exit 0
 fi
+
+
+while true; do  
+  echo "Stopping multi-room server to eliminate lag..."
+  pkill -f "snapserver"
+  echo "Starting multi-room server..."
+  /usr/bin/snapserver  &
+  sleep 21600
+done

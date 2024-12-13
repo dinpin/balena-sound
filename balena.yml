@@ -18,7 +18,7 @@ assets:
         https://raw.githubusercontent.com/balena-io-experimental/balena-sound/master/logo.png
 data:
   applicationEnvironmentVariables:
-    - SOUND_VOLUME: 75
+    - SOUND_VOLUME: 100
     - AUDIO_OUTPUT: AUTO
   defaultDeviceType: raspberry-pi
   supportedDeviceTypes:
@@ -28,4 +28,4 @@ data:
     - raspberrypi4-64
     - fincm3
     - intel-nuc
-version: 3.10.0
+version: 3.10.01
