@@ -36,10 +36,10 @@ else
 fi
 
 
-while true; do  
+while true; do 
+  sleep 21600 
   echo "Stopping multi-room server to eliminate lag..."
   pkill -f "snapserver"
   echo "Starting multi-room server..."
   /usr/bin/snapserver  &
-  sleep 21600
 done
