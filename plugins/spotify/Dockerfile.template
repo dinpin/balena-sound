@@ -14,7 +14,7 @@ ARG BALENA_ARCH=aarch64
 FROM balenalib/$BALENA_ARCH-alpine:3.14 AS librespot-builder
 WORKDIR /app
 
-ARG LIBRESPOT_VERSION=0.6.0-dev
+ARG LIBRESPOT_VERSION=0.6.0
 
 RUN install_packages alsa-lib-dev cargo curl
 
