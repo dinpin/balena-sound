@@ -1,45 +1,4 @@
-# #FROM andrewn/librespot:0.5.0-pulseaudio
-# FROM snapplecap/librespot:latest
-
-# ENV PULSE_SERVER=tcp:localhost:4317
-
-# COPY start.sh /usr/src/
-
-# CMD [ "/bin/bash", "/usr/src/start.sh" ]
-
-
-ARG BALENA_ARCH=aarch64
-
-# Build process from: https://git.alpinelinux.org/aports/tree/testing/librespot/APKBUILD
-FROM balenalib/$BALENA_ARCH-alpine:3.14 AS librespot-builder
-WORKDIR /app
-
-ARG LIBRESPOT_VERSION=0.6.0
-
-RUN install_packages alsa-lib-dev cargo curl
-
-RUN curl -sL "https://github.com/librespot-org/librespot/archive/refs/tags/v${LIBRESPOT_VERSION}.tar.gz" --output librespot.tar.gz && \
-  mkdir /app/librespot-src && \
-  tar -zxvf librespot.tar.gz --directory /app/librespot-src --strip-components=1
-
-WORKDIR /app/librespot-src
-
-ENV CARGO_HOME=/app/cargo
-ENV RUSTFLAGS="-C target-feature=-crt-static"
-
-RUN cargo build \
-  --release \
-  --features alsa-backend \
-  --verbose
-
-FROM balenalib/$BALENA_ARCH-alpine:3.14-run
-WORKDIR /app
-
-RUN install_packages libgcc alsa-lib-dev
-
-COPY --from=librespot-builder /app/librespot-src/target/release/librespot /usr/bin/librespot
-
-#CMD [ "/usr/bin/librespot" ]
+FROM andrewn/librespot:0.5.0-pulseaudio
 
 ENV PULSE_SERVER=tcp:localhost:4317
 
