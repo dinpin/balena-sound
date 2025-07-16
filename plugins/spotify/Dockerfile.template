@@ -1,5 +1,5 @@
 #FROM andrewn/librespot:0.5.0-pulseaudio
-FROM flori4n/librespot:latest-curl
+FROM snapplecap/librespot:latest
 
 ENV PULSE_SERVER=tcp:localhost:4317
 
