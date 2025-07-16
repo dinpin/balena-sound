@@ -39,4 +39,10 @@ RUN install_packages libgcc alsa-lib-dev
 
 COPY --from=librespot-builder /app/librespot-src/target/release/librespot /usr/bin/librespot
 
-CMD [ "/usr/bin/librespot" ]
+#CMD [ "/usr/bin/librespot" ]
+
+ENV PULSE_SERVER=tcp:localhost:4317
+
+COPY start.sh /usr/src/
+
+CMD [ "/bin/bash", "/usr/src/start.sh" ]
