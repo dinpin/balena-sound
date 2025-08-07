@@ -1,6 +1,63 @@
-# hadolint ignore=DL3006
-FROM bh.cr/g_tomas_migone1/multiroom-%%BALENA_ARCH%%
+# Build stage
+FROM debian:bullseye-slim AS build
+
 WORKDIR /usr/src
+
+# Install build dependencies and CA certificates
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        build-essential \
+        cmake \
+        git \
+        libpulse-dev \
+        libasound2-dev \
+        libvorbis-dev \
+        libflac-dev \
+        libopus-dev \
+        libsoxr-dev \
+        libavahi-client-dev \
+        libssl-dev \
+        libfmt-dev \
+        libspdlog-dev \
+        libexpat1-dev \
+        libboost-all-dev \
+        wget && \
+    rm -rf /var/lib/apt/lists/*
+
+# Build and install Snapcast client from latest master
+RUN git clone --depth 1 https://github.com/badaix/snapcast.git && \
+    cd snapcast && \
+    mkdir build && cd build && \
+    cmake .. && \
+    make && \
+    make install
+
+# --- Final image ---
+FROM debian:bullseye-slim
+
+WORKDIR /usr/src
+
+# Install only runtime dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        libpulse0 \
+        libasound2 \
+        libvorbis0a \
+        libflac8 \
+        libopus0 \
+        libsoxr0 \
+        libavahi-client3 \
+        libssl1.1 \
+        libfmt7 \
+        libspdlog1 \
+        libexpat1 \
+        libboost-system1.74.0 \
+        wget && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy installed binaries from build stage
+COPY --from=build /usr/local/bin/snapclient /usr/local/bin/
 
 ENV PULSE_SERVER=tcp:audio:4317
 ENV PULSE_SINK=balena-sound.output
