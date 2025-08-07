@@ -41,26 +41,32 @@ WORKDIR /usr/src
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libpulse0 \
+        pulseaudio \
         libasound2 \
         libvorbis0a \
         libflac8 \
         libopus0 \
         libsoxr0 \
         libavahi-client3 \
+        avahi-daemon \
         libssl1.1 \
         libfmt7 \
         libspdlog1 \
         libexpat1 \
         libboost-system1.74.0 \
-        curl && \
+        curl \
+        iproute2 && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy installed binaries and libraries from build stage
-COPY --from=build /usr/local/bin/snapserver /usr/local/bin/
+COPY --from=build /usr/local/bin/snapserver /usr/bin/snapserver
 COPY --from=build /usr/local/share/snapserver /usr/local/share/snapserver
 
 ENV PULSE_SERVER=tcp:audio:4317
 ENV PULSE_SOURCE=snapcast.monitor
+
+# Create PulseAudio config directory
+RUN mkdir -p /etc/pulse
 
 COPY snapserver.conf /etc/snapserver.conf
 COPY start.sh .

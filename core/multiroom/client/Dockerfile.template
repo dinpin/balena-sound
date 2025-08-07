@@ -53,11 +53,13 @@ RUN apt-get update && \
         libspdlog1 \
         libexpat1 \
         libboost-system1.74.0 \
-        wget && \
+        wget \
+        curl \
+        iproute2 && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy installed binaries from build stage
-COPY --from=build /usr/local/bin/snapclient /usr/local/bin/
+COPY --from=build /usr/local/bin/snapclient /usr/bin/snapclient
 
 ENV PULSE_SERVER=tcp:audio:4317
 ENV PULSE_SINK=balena-sound.output
