@@ -1,7 +1,7 @@
 ##############################
 # STAGE 1: Build librespot from source
 ##############################
-FROM balena/raspberrypi64-debian:bullseye-build as builder
+FROM balenalib/raspberrypi3-debian:bullseye-build as builder
 
 ARG LIBRESPOT_REPO=https://github.com/librespot-org/librespot.git
 ARG LIBRESPOT_BRANCH=master
@@ -24,7 +24,7 @@ RUN cargo build --release --no-default-features --features pulseaudio-backend
 ##############################
 # STAGE 2: Runtime
 ##############################
-FROM balena/raspberrypi64-debian:bullseye-run
+FROM balenalib/raspberrypi3-debian:bullseye-run
 
 ENV PULSE_SERVER=tcp:localhost:4317
 
