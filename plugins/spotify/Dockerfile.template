@@ -40,11 +40,11 @@ COPY --from=builder /librespot/target/release/librespot /usr/bin/librespot
 # Create non-root user and cache directory
 RUN useradd -m librespot && mkdir -p /var/cache/raspotify && chown librespot:librespot /var/cache/raspotify
 
-USER librespot
-
 VOLUME /var/cache/raspotify
 
 COPY start.sh /usr/src/start.sh
 RUN chmod +x /usr/src/start.sh
+
+USER librespot
 
 CMD ["/usr/src/start.sh"]
