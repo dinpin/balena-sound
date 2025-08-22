@@ -1,23 +1,128 @@
-# Use older version for ARM32 (works better) and newer for ARM64
-FROM mikebrady/shairport-sync:4.1.1 as shairport-armv7hf
-FROM mikebrady/shairport-sync:4.3.7 as shairport-aarch64
+# Build stage
+FROM alpine:3.18 AS builder
 
-# Select the appropriate base image based on architecture
-FROM shairport-%%BALENA_ARCH%% as shairport
+# Install build dependencies only
+RUN apk update && apk add --no-cache \
+    git \
+    autoconf \
+    automake \
+    libtool \
+    build-base \
+    pkgconfig \
+    pulseaudio-dev \
+    avahi-dev \
+    libdaemon-dev \
+    popt-dev \
+    openssl-dev \
+    soxr-dev \
+    libconfig-dev
+
+# Clone and build shairport-sync from dev branch
+RUN git clone --depth 1 --branch development https://github.com/mikebrady/shairport-sync.git /tmp/shairport-sync && \
+    cd /tmp/shairport-sync && \
+    autoreconf -i -f && \
+    ./configure \
+        --with-pa \
+        --with-avahi \
+        --with-ssl=openssl \
+        --with-soxr \
+        --with-metadata \
+        --with-stdout \
+        --with-pipe \
+        --sysconfdir=/etc \
+        --with-systemd \
+        --with-dbus-interface \
+        --with-mpris-interface && \
+    make -j$(nproc) && \
+    make install-strip
+
+# Clone and build nqptp for AirPlay 2 support
+RUN git clone --depth 1 https://github.com/mikebrady/nqptp.git /tmp/nqptp && \
+    cd /tmp/nqptp && \
+    autoreconf -i -f && \
+    ./configure && \
+    make -j$(nproc) && \
+    make install-strip
+
+# Runtime stage
+FROM alpine:3.18
+
 WORKDIR /usr/src
 
+# Set environment variables
 ENV DBUS_SYSTEM_BUS_ADDRESS=unix:path=/host/run/dbus/system_bus_socket
-
-# DL4006: https://github.com/hadolint/hadolint/wiki/DL4006
-SHELL ["/bin/sh", "-eo", "pipefail", "-c"]
-
-# shairport-sync docker image doesn't include pulseaudio support so we use ALSA bridge
 ENV PULSE_SERVER=tcp:localhost:4317
-RUN apk update && apk add --no-cache supervisor curl && \
-  curl -skL https://raw.githubusercontent.com/balena-io-experimental/audio/master/scripts/alsa-bridge/alpine-setup.sh | sh \
-  && apk del curl
 
+# Install only runtime dependencies
+RUN apk update && apk add --no-cache \
+    pulseaudio \
+    avahi \
+    avahi-tools \
+    libdaemon \
+    popt \
+    openssl \
+    soxr \
+    libconfig \
+    supervisor \
+    dbus \
+    netcat-openbsd \
+    && \
+    # Create avahi user and group (ignore if they already exist)
+    addgroup -g 86 -S avahi 2>/dev/null || true && \
+    adduser -u 86 -D -S -G avahi avahi 2>/dev/null || true && \
+    # Create necessary directories
+    mkdir -p /var/run/avahi-daemon /var/run/dbus /etc/avahi && \
+    chown avahi:avahi /var/run/avahi-daemon 2>/dev/null || true && \
+    # Clean package cache
+    rm -rf /var/cache/apk/*
+
+# Copy binaries from builder stage
+COPY --from=builder /usr/local/bin/shairport-sync /usr/local/bin/shairport-sync
+COPY --from=builder /usr/local/bin/nqptp /usr/local/bin/nqptp
+
+# Create avahi daemon configuration
+RUN echo '[server]' > /etc/avahi/avahi-daemon.conf && \
+    echo 'host-name-from-machine-id=no' >> /etc/avahi/avahi-daemon.conf && \
+    echo 'domain-name=local' >> /etc/avahi/avahi-daemon.conf && \
+    echo 'browse-domains=' >> /etc/avahi/avahi-daemon.conf && \
+    echo 'use-ipv4=yes' >> /etc/avahi/avahi-daemon.conf && \
+    echo 'use-ipv6=no' >> /etc/avahi/avahi-daemon.conf && \
+    echo 'allow-interfaces=' >> /etc/avahi/avahi-daemon.conf && \
+    echo 'deny-interfaces=' >> /etc/avahi/avahi-daemon.conf && \
+    echo 'check-response-ttl=no' >> /etc/avahi/avahi-daemon.conf && \
+    echo 'use-iff-running=no' >> /etc/avahi/avahi-daemon.conf && \
+    echo 'enable-dbus=no' >> /etc/avahi/avahi-daemon.conf && \
+    echo 'disallow-other-stacks=no' >> /etc/avahi/avahi-daemon.conf && \
+    echo '' >> /etc/avahi/avahi-daemon.conf && \
+    echo '[wide-area]' >> /etc/avahi/avahi-daemon.conf && \
+    echo 'enable-wide-area=yes' >> /etc/avahi/avahi-daemon.conf && \
+    echo '' >> /etc/avahi/avahi-daemon.conf && \
+    echo '[publish]' >> /etc/avahi/avahi-daemon.conf && \
+    echo 'disable-publishing=no' >> /etc/avahi/avahi-daemon.conf && \
+    echo 'disable-user-service-publishing=no' >> /etc/avahi/avahi-daemon.conf && \
+    echo 'add-service-cookie=no' >> /etc/avahi/avahi-daemon.conf && \
+    echo 'publish-addresses=yes' >> /etc/avahi/avahi-daemon.conf && \
+    echo 'publish-hinfo=yes' >> /etc/avahi/avahi-daemon.conf && \
+    echo 'publish-workstation=yes' >> /etc/avahi/avahi-daemon.conf && \
+    echo 'publish-domain=yes' >> /etc/avahi/avahi-daemon.conf && \
+    echo '' >> /etc/avahi/avahi-daemon.conf && \
+    echo '[reflector]' >> /etc/avahi/avahi-daemon.conf && \
+    echo 'enable-reflector=no' >> /etc/avahi/avahi-daemon.conf && \
+    echo '' >> /etc/avahi/avahi-daemon.conf && \
+    echo '[rlimits]' >> /etc/avahi/avahi-daemon.conf && \
+    echo 'rlimit-as=' >> /etc/avahi/avahi-daemon.conf && \
+    echo 'rlimit-core=0' >> /etc/avahi/avahi-daemon.conf && \
+    echo 'rlimit-data=8388608' >> /etc/avahi/avahi-daemon.conf && \
+    echo 'rlimit-fsize=0' >> /etc/avahi/avahi-daemon.conf && \
+    echo 'rlimit-nofile=768' >> /etc/avahi/avahi-daemon.conf && \
+    echo 'rlimit-stack=8388608' >> /etc/avahi/avahi-daemon.conf && \
+    echo 'rlimit-nproc=3' >> /etc/avahi/avahi-daemon.conf
+
+# Copy configuration files
 COPY start.sh /usr/src/
 COPY supervisor.conf /usr/src/supervisor.conf
 
-CMD ["supervisord","-c","/usr/src/supervisor.conf"]
+# Make start script executable
+RUN chmod +x /usr/src/start.sh
+
+CMD ["supervisord", "-c", "/usr/src/supervisor.conf"]
