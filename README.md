@@ -12,7 +12,7 @@
 
 Running this app is as simple as deploying it to a balenaCloud fleet. You can do it in just one click by using the button below:
 
-[![deploy button](https://balena.io/deploy.svg)](https://dashboard.balena-cloud.com/deploy?repoUrl=https://github.com/dinpin/balena-sound&defaultDeviceType=raspberry-pi&tarballUrl=https://github.com/dinpin/balena-sound/archive/refs/heads/dev.tar.gz)
+[![deploy button](https://balena.io/deploy.svg)](https://dashboard.balena-cloud.com/deploy?repoUrl=https://github.com/dinpin/balena-sound&defaultDeviceType=raspberry-pi)
 
 ## Documentation
 

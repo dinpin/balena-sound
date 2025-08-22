@@ -23,7 +23,8 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 # Clone librespot repo and build with PulseAudio backend
 RUN git clone --depth 1 --branch ${LIBRESPOT_BRANCH} ${LIBRESPOT_REPO} /librespot
 WORKDIR /librespot
-RUN cargo build --release --no-default-features --features pulseaudio-backend,with-libmdns
+# Use all CPU cores for faster Rust compilation
+RUN cargo build --release --no-default-features --features pulseaudio-backend,with-libmdns -j $(nproc)
 
 
 ##############################

@@ -25,12 +25,12 @@ RUN apt-get update && \
         wget && \
     rm -rf /var/lib/apt/lists/*
 
-# Build and install Snapcast client from latest master
-RUN git clone --depth 1 https://github.com/badaix/snapcast.git && \
+# Build and install Snapcast client from latest stable v0.32.3 (matching server version)
+RUN git clone --depth 1 --branch v0.32.3 https://github.com/badaix/snapcast.git && \
     cd snapcast && \
     mkdir build && cd build && \
     cmake .. && \
-    make && \
+    make -j$(nproc) && \
     make install
 
 # --- Final image ---
@@ -43,6 +43,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libpulse0 \
         libasound2 \
+        libasound2-plugins \
         libvorbis0a \
         libflac8 \
         libopus0 \
@@ -63,6 +64,9 @@ COPY --from=build /usr/local/bin/snapclient /usr/bin/snapclient
 
 ENV PULSE_SERVER=tcp:audio:4317
 ENV PULSE_SINK=balena-sound.output
+
+# Copy ALSA configuration to use PulseAudio
+COPY asound.conf /etc/asound.conf
 
 COPY start.sh .
 

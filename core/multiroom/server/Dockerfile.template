@@ -24,12 +24,12 @@ RUN apt-get update && \
         wget && \
     rm -rf /var/lib/apt/lists/*
 
-# Build and install Snapcast server from latest master
-RUN git clone --depth 1 https://github.com/badaix/snapcast.git && \
+# Build and install Snapcast server from latest stable v0.32.3
+RUN git clone --depth 1 --branch v0.32.3 https://github.com/badaix/snapcast.git && \
     cd snapcast && \
     mkdir build && cd build && \
     cmake .. && \
-    make && \
+    make -j$(nproc) && \
     make install
 
 # --- Final image ---
