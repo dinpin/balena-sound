@@ -14,8 +14,35 @@ echo "Device name: $SOUND_DEVICE_NAME"
 
 # Check if avahi-daemon is running, if not start it (needed for ARM32)
 if ! pgrep -x "avahi-daemon" > /dev/null; then
-    echo "Starting avahi-daemon for mDNS..."
-    avahi-daemon --no-drop-root --no-chroot -D
+    echo "Starting avahi-daemon for mDNS (no D-Bus mode)..."
+    
+    # Create avahi config that disables D-Bus
+    mkdir -p /etc/avahi
+    cat > /etc/avahi/avahi-daemon.conf <<EOF
+[server]
+use-ipv4=yes
+use-ipv6=no
+enable-dbus=no
+allow-interfaces=eth0,wlan0
+ratelimit-interval-usec=1000000
+ratelimit-burst=1000
+
+[wide-area]
+enable-wide-area=yes
+
+[publish]
+publish-addresses=yes
+publish-hinfo=yes
+publish-workstation=no
+publish-domain=yes
+
+[reflector]
+
+[rlimits]
+EOF
+    
+    # Start avahi-daemon with our config (no D-Bus required)
+    avahi-daemon --no-drop-root --no-chroot -D &
     sleep 2
 fi
 
