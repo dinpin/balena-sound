@@ -5,12 +5,19 @@ if [[ -n "$SOUND_DISABLE_AIRPLAY" ]]; then
   exit 0
 fi
 
-# --- ENV VARS ---
+# --- ENV VARS ---
 # SOUND_DEVICE_NAME: Set the device broadcast name for AirPlay
 SOUND_DEVICE_NAME=${SOUND_DEVICE_NAME:-"balenaSound AirPlay $(echo "$BALENA_DEVICE_UUID" | cut -c -4)"}
 
 echo "Starting AirPlay plugin..."
 echo "Device name: $SOUND_DEVICE_NAME"
+
+# Check if avahi-daemon is running, if not start it (needed for ARM32)
+if ! pgrep -x "avahi-daemon" > /dev/null; then
+    echo "Starting avahi-daemon for mDNS..."
+    avahi-daemon --no-drop-root --no-chroot -D
+    sleep 2
+fi
 
 # Start AirPlay with high quality settings and low latency for video sync
 echo "Starting Shairport Sync"
