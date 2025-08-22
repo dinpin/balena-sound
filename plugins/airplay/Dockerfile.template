@@ -1,4 +1,9 @@
-FROM mikebrady/shairport-sync:4.1.1 as shairport
+# Use older version for ARM32 (works better) and newer for ARM64
+FROM mikebrady/shairport-sync:4.1.1 as shairport-armv7hf
+FROM mikebrady/shairport-sync:4.3.7 as shairport-aarch64
+
+# Select the appropriate base image based on architecture
+FROM shairport-%%BALENA_ARCH%% as shairport
 WORKDIR /usr/src
 
 ENV DBUS_SYSTEM_BUS_ADDRESS=unix:path=/host/run/dbus/system_bus_socket
