@@ -29,13 +29,35 @@ fi
 # Start snapserver
 if [[ "$MODE" == "MULTI_ROOM" ]]; then
   echo "Starting multi-room server..."
+  
+  # Wait for PulseAudio to be ready (critical for snapserver to work)
+  echo "Waiting for PulseAudio at tcp://audio:4317..."
+  retries=0
+  while [ $retries -lt 60 ]; do
+    # Try to connect to PulseAudio port
+    if timeout 1 bash -c "echo > /dev/tcp/audio/4317" 2>/dev/null; then
+      echo "PulseAudio is ready!"
+      break
+    fi
+    retries=$((retries + 1))
+    echo "Waiting for PulseAudio... ($retries/60)"
+    sleep 2
+  done
+  
+  if [ $retries -eq 60 ]; then
+    echo "WARNING: PulseAudio may not be ready, but continuing anyway..."
+  fi
+  
+  # Give PulseAudio a moment to fully stabilize
+  sleep 3
+  
+  # Main restart loop
   while true; do 
     /usr/bin/snapserver &
     sleep 21600 
     echo "Stopping multi-room server to eliminate lag..."
     pkill -f "snapserver"
     echo "Starting multi-room server..."
-    #/usr/bin/snapserver  &
   done
 else
   echo "Multi-room server disabled. Exiting..."
