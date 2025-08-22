@@ -12,10 +12,16 @@ SOUND_DEVICE_NAME=${SOUND_DEVICE_NAME:-"balenaSound AirPlay $(echo "$BALENA_DEVI
 echo "Starting AirPlay plugin..."
 echo "Device name: $SOUND_DEVICE_NAME"
 
-# Start AirPlay
+# Start AirPlay with high quality settings and low latency for video sync
 echo "Starting Shairport Sync"
 exec shairport-sync \
   --name "$SOUND_DEVICE_NAME" \
   --output alsa \
-  -- -d pulse \
+  --use-stderr \
+  --statistics \
+  --tolerance 88 \
+  --audio-backend-latency-offset -1000 \
+  --audio-backend-buffer-desired-length 0.15 \
+  -c /dev/null \
+  -- -d pulse -r 48000 -f S24_LE \
   | echo "Shairport-sync started. Device is discoverable as $SOUND_DEVICE_NAME"

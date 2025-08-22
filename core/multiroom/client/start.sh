@@ -30,6 +30,7 @@ fi
 
 # Start snapclient
 if [[ "$MODE" == "MULTI_ROOM" || "$MODE" == "MULTI_ROOM_CLIENT" ]]; then
+  # ALSA will use PulseAudio by default thanks to /etc/asound.conf
   /usr/bin/snapclient --host $SNAPSERVER $LATENCY --hostID $SNAPCAST_CLIENT_ID --logfilter *:error
 else
   echo "Multi-room client disabled. Exiting..."

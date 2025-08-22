@@ -7,7 +7,8 @@ if [[ -n "$SOUND_DISABLE_SPOTIFY" ]]; then
 fi
 
 SOUND_DEVICE_NAME="${SOUND_DEVICE_NAME:-balenaSound Spotify ${BALENA_DEVICE_UUID:0:4}}"
-SOUND_SPOTIFY_BITRATE="${SOUND_SPOTIFY_BITRATE:-160}"
+# Maximum quality: 320 kbps (Spotify Premium quality)
+SOUND_SPOTIFY_BITRATE="${SOUND_SPOTIFY_BITRATE:-320}"
 
 ARGS=(
   --name "$SOUND_DEVICE_NAME"
@@ -15,6 +16,7 @@ ARGS=(
   --bitrate "$SOUND_SPOTIFY_BITRATE"
   --cache /var/cache/raspotify
   --volume-ctrl linear
+  --initial-volume 100
 )
 
 if [[ -z "$SOUND_SPOTIFY_DISABLE_NORMALISATION" ]]; then

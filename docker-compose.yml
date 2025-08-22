@@ -34,7 +34,10 @@ services:
 
   multiroom-client:
     build: ./core/multiroom/client
-    restart: on-failure
+    restart: unless-stopped
+    depends_on:
+      - audio
+      - multiroom-server
 
   # Plugins
   # -- Additional plugins can be added. See https://balena-sound.pages.dev/plugins
