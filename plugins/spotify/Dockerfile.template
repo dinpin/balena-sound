@@ -24,7 +24,8 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 RUN git clone --depth 1 --branch ${LIBRESPOT_BRANCH} ${LIBRESPOT_REPO} /librespot
 WORKDIR /librespot
 # Use all CPU cores for faster Rust compilation
-RUN cargo build --release --no-default-features --features pulseaudio-backend,with-libmdns -j $(nproc)
+# Added native-tls feature which is now required for librespot-oauth
+RUN cargo build --release --no-default-features --features pulseaudio-backend,with-libmdns,native-tls -j $(nproc)
 
 
 ##############################
