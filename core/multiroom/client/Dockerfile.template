@@ -1,5 +1,5 @@
 # Build stage
-FROM debian:bookworm-slim AS build
+FROM debian:bullseye-slim AS build
 
 WORKDIR /usr/src
 
@@ -34,7 +34,7 @@ RUN git clone --depth 1 --branch v0.32.3 https://github.com/badaix/snapcast.git 
     make install
 
 # --- Final image ---
-FROM debian:bookworm-slim
+FROM debian:bullseye-slim
 
 WORKDIR /usr/src
 
