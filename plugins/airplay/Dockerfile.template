@@ -1,18 +1,111 @@
-FROM mikebrady/shairport-sync:4.1.1 as shairport
+# Build stage
+FROM debian:bookworm-slim AS builder
+
+# Install build dependencies - following official shairport-sync BUILD.md guide
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    autoconf \
+    automake \
+    libtool \
+    libpopt-dev \
+    libconfig-dev \
+    libasound2-dev \
+    avahi-daemon \
+    libavahi-client-dev \
+    libssl-dev \
+    libsoxr-dev \
+    libplist-dev \
+    libsodium-dev \
+    uuid-dev \
+    libgcrypt-dev \
+    xxd \
+    libplist-utils \
+    libavutil-dev \
+    libavcodec-dev \
+    libavformat-dev \
+    pkg-config \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Clone and build shairport-sync from dev branch with ALSA support only
+RUN git clone --depth 1 --branch development https://github.com/mikebrady/shairport-sync.git /tmp/shairport-sync && \
+    cd /tmp/shairport-sync && \
+    autoreconf -i -f && \
+    ./configure \
+        --sysconfdir=/etc \
+        --with-alsa \
+        --with-soxr \
+        --with-avahi \
+        --with-ssl=openssl \
+        --with-airplay-2 && \
+    make -j$(nproc) && \
+    make install-strip
+
+# Clone and build nqptp for AirPlay 2 support
+RUN git clone --depth 1 https://github.com/mikebrady/nqptp.git /tmp/nqptp && \
+    cd /tmp/nqptp && \
+    autoreconf -i -f && \
+    ./configure && \
+    make -j$(nproc) && \
+    make install-strip
+
+# Runtime stage - use same Debian base for consistency
+FROM debian:bookworm-slim
+
 WORKDIR /usr/src
 
 ENV DBUS_SYSTEM_BUS_ADDRESS=unix:path=/host/run/dbus/system_bus_socket
 
-# DL4006: https://github.com/hadolint/hadolint/wiki/DL4006
-SHELL ["/bin/sh", "-eo", "pipefail", "-c"]
-
-# shairport-sync docker image doesn't include pulseaudio support so we use ALSA bridge
+# shairport-sync will use ALSA, and we use ALSA bridge to connect to PulseAudio
 ENV PULSE_SERVER=tcp:localhost:4317
-RUN apk update && apk add --no-cache supervisor curl && \
-  curl -skL https://raw.githubusercontent.com/balena-io-experimental/audio/master/scripts/alsa-bridge/alpine-setup.sh | sh \
-  && apk del curl
 
+# Install runtime dependencies and ALSA bridge
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    supervisor \
+    curl \
+    # ALSA bridge dependencies
+    libasound2 \
+    libasound2-plugins \
+    libpulse0 \
+    # Runtime dependencies for our compiled binaries
+    avahi-daemon \
+    avahi-utils \
+    libavahi-client3 \
+    libdaemon0 \
+    libpopt0 \
+    openssl \
+    libsoxr0 \
+    libconfig9 \
+    libplist3 \
+    libsodium23 \
+    util-linux \
+    libgcrypt20 \
+    libavutil57 \
+    libavcodec59 \
+    libavformat59 \
+    libswresample4 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up ALSA bridge for PulseAudio connectivity
+RUN echo "pcm.!default {\n\
+    type pulse\n\
+    server \"tcp:localhost:4317\"\n\
+}\n\
+ctl.!default {\n\
+    type pulse\n\
+    server \"tcp:localhost:4317\"\n\
+}" > /etc/asound.conf
+
+# Copy binaries from builder stage
+COPY --from=builder /usr/local/bin/shairport-sync /usr/local/bin/shairport-sync
+COPY --from=builder /usr/local/bin/nqptp /usr/local/bin/nqptp
+
+# Copy configuration files
 COPY start.sh /usr/src/
 COPY supervisor.conf /usr/src/supervisor.conf
 
-CMD ["supervisord","-c","/usr/src/supervisor.conf"]
+# Make start script executable
+RUN chmod +x /usr/src/start.sh
+
+CMD ["supervisord", "-c", "/usr/src/supervisor.conf"]
