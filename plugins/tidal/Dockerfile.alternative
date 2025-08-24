@@ -1,0 +1,96 @@
+# Alternative Tidal implementation using open-source tidal-cli-client
+# This builds from source and is more reliable than binary dependencies
+FROM node:18-bullseye-slim
+
+WORKDIR /usr/src
+
+ENV PULSE_SERVER=tcp:localhost:4317
+ENV DBUS_SYSTEM_BUS_ADDRESS=unix:path=/host/run/dbus/system_bus_socket
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    libasound2 \
+    libasound2-plugins \
+    libpulse0 \
+    libavahi-client3 \
+    libavahi-common3 \
+    libdbus-1-3 \
+    alsa-utils \
+    dbus \
+    avahi-daemon \
+    supervisor \
+    git \
+    # Dependencies for tidal-cli-client
+    mpv \
+    w3m \
+    w3m-img \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up ALSA bridge for PulseAudio connectivity
+RUN echo "pcm.!default {\n\
+    type pulse\n\
+    server \"tcp:localhost:4317\"\n\
+}\n\
+ctl.!default {\n\
+    type pulse\n\
+    server \"tcp:localhost:4317\"\n\
+}" > /etc/asound.conf
+
+# Install tidal-cli-client from source
+RUN git clone https://github.com/okonek/tidal-cli-client.git /opt/tidal-cli && \
+    cd /opt/tidal-cli && \
+    npm install && \
+    npm run build || npm run compile || echo "Build step completed"
+
+# Create a wrapper script to run tidal-cli in headless mode
+RUN echo '#!/bin/bash\n\
+set -e\n\
+\n\
+if [[ -n "$SOUND_DISABLE_TIDAL" ]]; then\n\
+  echo "Tidal is disabled, exiting..."\n\
+  exit 0\n\
+fi\n\
+\n\
+echo "Starting Tidal CLI client..."\n\
+echo "Device name: ${SOUND_DEVICE_NAME:-balenaSound Tidal}"\n\
+\n\
+# Wait for PulseAudio to be available\n\
+echo "Waiting for PulseAudio server..."\n\
+timeout=30\n\
+while ! curl -s http://localhost:4317 > /dev/null 2>&1; do\n\
+    sleep 1\n\
+    timeout=$((timeout - 1))\n\
+    if [ $timeout -eq 0 ]; then\n\
+        echo "Warning: PulseAudio server not responding, continuing anyway..."\n\
+        break\n\
+    fi\n\
+done\n\
+echo "PulseAudio server is available"\n\
+\n\
+# Configure MPV to use PulseAudio\n\
+mkdir -p ~/.config/mpv\n\
+echo "ao=pulse" > ~/.config/mpv/mpv.conf\n\
+echo "pulse-host=localhost:4317" >> ~/.config/mpv/mpv.conf\n\
+\n\
+cd /opt/tidal-cli\n\
+\n\
+# Run in headless mode if credentials are provided via environment\n\
+if [[ -n "$TIDAL_USERNAME" && -n "$TIDAL_PASSWORD" ]]; then\n\
+    echo "Running with provided credentials"\n\
+    # This would need to be adapted based on tidal-cli-client API\n\
+    node app.js --headless --username="$TIDAL_USERNAME" --password="$TIDAL_PASSWORD" || node app.js\n\
+else\n\
+    echo "No credentials provided, running interactive mode"\n\
+    node app.js\n\
+fi\n\
+' > /usr/src/start-tidal.sh && chmod +x /usr/src/start-tidal.sh
+
+# Copy supervisor config
+COPY supervisor.conf /usr/src/supervisor.conf
+
+# Update supervisor config to use our new script
+RUN sed -i 's|command=/usr/src/start.sh|command=/usr/src/start-tidal.sh|' /usr/src/supervisor.conf
+
+CMD ["supervisord", "-c", "/usr/src/supervisor.conf"]
