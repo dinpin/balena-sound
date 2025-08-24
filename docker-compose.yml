@@ -34,7 +34,7 @@ services:
 
   multiroom-client:
     build: ./core/multiroom/client
-    restart: unless-stopped
+    restart: on-failure
     depends_on:
       - audio
       - multiroom-server
