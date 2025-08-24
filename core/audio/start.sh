@@ -1,6 +1,30 @@
 #!/bin/bash
 set -e
 
+# Audio quality environment variables with defaults
+AUDIO_SAMPLE_RATE=${AUDIO_SAMPLE_RATE:-48000}
+AUDIO_BIT_DEPTH=${AUDIO_BIT_DEPTH:-24}
+AUDIO_RESAMPLER=${AUDIO_RESAMPLER:-soxr-vhq}
+
+# Determine audio format based on bit depth
+case "$AUDIO_BIT_DEPTH" in
+  16) AUDIO_FORMAT="s16le" ;;
+  24) AUDIO_FORMAT="s24le" ;;
+  32) AUDIO_FORMAT="s32le" ;;
+  *) AUDIO_FORMAT="s24le"; AUDIO_BIT_DEPTH=24 ;;
+esac
+
+echo "Audio Quality Settings:"
+echo "  Sample Rate: ${AUDIO_SAMPLE_RATE}Hz"
+echo "  Bit Depth: ${AUDIO_BIT_DEPTH}-bit"
+echo "  Format: ${AUDIO_FORMAT}"
+echo "  Resampler: ${AUDIO_RESAMPLER}"
+
+# Update PulseAudio daemon configuration
+sed -i "s/default-sample-rate = .*/default-sample-rate = $AUDIO_SAMPLE_RATE/" /etc/pulse/daemon.conf
+sed -i "s/default-sample-format = .*/default-sample-format = $AUDIO_FORMAT/" /etc/pulse/daemon.conf
+sed -i "s/resample-method = .*/resample-method = $AUDIO_RESAMPLER/" /etc/pulse/daemon.conf
+
 # PulseAudio configuration files for balena-sound
 CONFIG_TEMPLATE=/usr/src/balena-sound.pa
 CONFIG_FILE=/etc/pulse/default.pa.d/01-balenasound.pa
@@ -14,7 +38,6 @@ function set_loopback_latency() {
 }
 
 # Route "balena-sound.input" to the appropriate sink depending on selected mode
-# Either "snapcast" fifo sink or "balena-sound.output"
 function route_input_sink() {
   local MODE="$1"
 
@@ -37,29 +60,29 @@ function route_input_sink() {
   esac
 }
 
-# Route any existing source to the input router ("balena-sound.input")
-function route_input_source() {
-  local INPUT_DEVICE=$(arecord -l | awk '/card [0-9]:/ { print $3 }')
-
-  if [[ -n "$INPUT_DEVICE" ]]; then
-    local INPUT_DEVICE_FULLNAME="alsa_input.$INPUT_DEVICE.analog-stereo"
-    echo "Routing audio from '$INPUT_DEVICE_FULLNAME' into 'balena-sound.input sink'"
-    echo -e "\nload-module module-loopback source=$INPUT_DEVICE_FULLNAME sink=balena-sound.input" >> "$CONFIG_FILE"
-  fi
-
-}
-
 # Route "balena-sound.output" to the appropriate audio hardware
 function route_output_sink() {
   local OUTPUT=""
 
-  # Audio block outputs the default sink name to this file
-  # If file doesn't exist, default to sink #0. This shouldn't happen though
-  local SINK_FILE=/run/pulse/pulseaudio.sink
-  if [[ -f "$SINK_FILE" ]]; then
-    OUTPUT=$(cat "$SINK_FILE")
+  # Wait for PulseAudio to start and detect hardware
+  sleep 2
+  
+  # Find the first hardware audio sink (not null-sink)
+  OUTPUT=$(pactl list sinks short | grep -v "module-null-sink" | head -n1 | awk '{print $2}')
+  
+  # If no hardware sink found, try to find ALSA sink
+  if [[ -z "$OUTPUT" ]]; then
+    OUTPUT=$(pactl list sinks short | grep -E "(alsa|hw)" | head -n1 | awk '{print $2}')
   fi
+  
+  # Fallback to sink index if name not found
+  if [[ -z "$OUTPUT" ]]; then
+    OUTPUT=$(pactl list sinks short | grep -v "module-null-sink" | head -n1 | awk '{print $1}')
+  fi
+  
+  # Final fallback
   OUTPUT="${OUTPUT:-0}"
+  
   sed -i "s/%OUTPUT_SINK%/sink=$OUTPUT/" "$CONFIG_FILE"
   echo "Routing 'balena-sound.output' to '$OUTPUT'."
 }
@@ -69,18 +92,14 @@ function reset_sound_config() {
     rm "$CONFIG_FILE"
   fi 
   cp "$CONFIG_TEMPLATE" "$CONFIG_FILE"
+  
+  # Update sink formats to match current audio settings
+  sed -i "s/format=s24le/format=$AUDIO_FORMAT/g" "$CONFIG_FILE"
+  sed -i "s/rate=48000/rate=$AUDIO_SAMPLE_RATE/g" "$CONFIG_FILE"
 }
 
-SOUND_SUPERVISOR_PORT=${SOUND_SUPERVISOR_PORT:-80}
-SOUND_SUPERVISOR="$(ip route | awk '/default / { print $3 }'):$SOUND_SUPERVISOR_PORT"
-# Wait for sound supervisor to start
-while ! curl --silent --output /dev/null "$SOUND_SUPERVISOR/ping"; do sleep 5; echo "Waiting for sound supervisor to start at $SOUND_SUPERVISOR"; done
-
-# Get mode from sound supervisor. 
-# mode: default to MULTI_ROOM
-MODE=$(curl --silent "$SOUND_SUPERVISOR/mode" || true)
-
-# Get latency values
+# Set default mode and latency values
+MODE=${SOUND_MODE:-MULTI_ROOM}
 SOUND_INPUT_LATENCY=${SOUND_INPUT_LATENCY:-200}
 SOUND_OUPUT_LATENCY=${SOUND_OUTPUT_LATENCY:-200}
 
@@ -88,11 +107,10 @@ SOUND_OUPUT_LATENCY=${SOUND_OUTPUT_LATENCY:-200}
 echo "Setting audio routing rules..."
 reset_sound_config
 route_input_sink "$MODE"
-route_output_sink
 set_loopback_latency "INPUT_LATENCY" "$SOUND_INPUT_LATENCY"
 set_loopback_latency "OUTPUT_LATENCY" "$SOUND_OUPUT_LATENCY"
-if [[ -n "$SOUND_ENABLE_SOUNDCARD_INPUT" ]]; then
-  route_input_source
-fi
 
-exec pulseaudio
+# Start PulseAudio with our custom configuration
+echo "Starting PulseAudio with config file: $CONFIG_FILE"
+echo "PulseAudio command: pulseaudio --disallow-exit --disallow-module-loading=false --daemonize=false --log-target=stderr -v --file=\"$CONFIG_FILE\""
+exec pulseaudio --disallow-exit --disallow-module-loading=false --daemonize=false --log-target=stderr -v --file="$CONFIG_FILE"

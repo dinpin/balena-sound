@@ -1,12 +1,22 @@
 # See https://github.com/balena-io-experimental/balena-sound/blob/master/docs/ARCHITECTURE.md for details
 
-# Create balena-sound sinks
-load-module module-null-sink sink_name=balena-sound.input
-load-module module-null-sink sink_name=balena-sound.output
-load-module module-null-sink sink_name=snapcast
+# Load hardware audio drivers first
+.ifexists module-udev-detect.so
+load-module module-udev-detect
+.else
+load-module module-detect
+.endif
+
+# Create balena-sound sinks with standardized high-quality settings
+load-module module-null-sink sink_name=balena-sound.input format=s24le rate=48000
+load-module module-null-sink sink_name=balena-sound.output format=s24le rate=48000
+load-module module-null-sink sink_name=snapcast format=s24le rate=48000
 
 # Route all plugin input to the default sink
 set-default-sink balena-sound.input
+
+# Load network module for other containers to connect
+load-module module-native-protocol-tcp auth-anonymous=1 port=4317
 
 # Route audio internally, loopback sinks depend on configuration. See start.sh for details:
 # balena-sound.input: For multiroom it's routed to snapcast sink, for standalone directly wired to balena-sound.output

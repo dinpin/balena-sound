@@ -31,6 +31,10 @@ else
   echo "Spotify audio cache enabled."
 fi
 
+# Configure PulseAudio connection
+# Since Spotify uses network_mode: host, connect to localhost
+export PULSE_SERVER="tcp:localhost:4317"
+
 echo "Starting Spotify plugin..."
 echo "Device name: $SOUND_DEVICE_NAME"
 

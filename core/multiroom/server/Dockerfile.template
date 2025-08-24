@@ -35,9 +35,7 @@ RUN git clone --depth 1 --branch v0.32.3 https://github.com/badaix/snapcast.git 
 # --- Final image ---
 FROM debian:bullseye-slim
 
-WORKDIR /usr/src
-
-# Install only runtime dependencies
+# Install only runtime dependencies (cached layer)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libpulse0 \
@@ -58,16 +56,21 @@ RUN apt-get update && \
         iproute2 && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy installed binaries and libraries from build stage
+# Copy installed binaries and libraries from build stage (cached layer)
 COPY --from=build /usr/local/bin/snapserver /usr/bin/snapserver
 COPY --from=build /usr/local/share/snapserver /usr/local/share/snapserver
 
+# Set environment variables (cached layer)
 ENV PULSE_SERVER=tcp:audio:4317
 ENV PULSE_SOURCE=snapcast.monitor
 
-# Create PulseAudio config directory
-RUN mkdir -p /etc/pulse
+# Create directories (cached layer)
+RUN mkdir -p /etc/pulse /usr/src
 
+# Set working directory
+WORKDIR /usr/src
+
+# Copy configuration files (only rebuilds if files change)
 COPY snapserver.conf /etc/snapserver.conf
 COPY start.sh .
 

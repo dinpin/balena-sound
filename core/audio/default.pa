@@ -1,0 +1,56 @@
+#!/usr/bin/pulseaudio -nF
+# PulseAudio configuration script for high-quality audio container
+
+# Load audio hardware detection modules
+.ifexists module-udev-detect.so
+load-module module-udev-detect
+.else
+load-module module-detect
+.endif
+
+# Network protocols for inter-container communication
+load-module module-native-protocol-tcp auth-anonymous=1 port=4317 listen=0.0.0.0
+load-module module-native-protocol-unix auth-anonymous=1 socket=/run/pulse/native
+
+# Essential modules
+load-module module-always-sink
+load-module module-rescue-streams
+load-module module-intended-roles
+load-module module-suspend-on-idle timeout=5
+
+# Stream routing and restoration
+load-module module-stream-restore
+load-module module-device-restore
+load-module module-card-restore
+load-module module-default-device-restore
+
+# Position event sounds
+load-module module-augment-properties
+load-module module-position-event-sounds
+
+# Load X11 bell module if available
+.ifexists module-x11-bell.so
+load-module module-x11-bell sample=bell-windowing-system
+.endif
+
+# Load cork-music-on-phone module if available
+.ifexists module-role-cork.so
+load-module module-role-cork
+.endif
+
+# Load modules for Bluetooth if available
+.ifexists module-bluetooth-policy.so
+load-module module-bluetooth-policy
+.endif
+
+.ifexists module-bluetooth-discover.so
+load-module module-bluetooth-discover
+.endif
+
+# Modules for better desktop integration
+load-module module-filter-heuristics
+load-module module-filter-apply
+
+# Set default sink and source (will be overridden by hardware detection)
+set-default-sink @DEFAULT_SINK@
+set-default-source @DEFAULT_SOURCE@

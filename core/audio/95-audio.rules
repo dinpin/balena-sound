@@ -1,0 +1,25 @@
+# UDEV rules for audio device detection and naming
+# This file ensures proper detection and naming of audio devices for PulseAudio
+
+# USB Audio devices
+SUBSYSTEM=="sound", KERNEL=="card*", DRIVERS=="snd-usb-audio", ATTR{id}="usb-audio-%n"
+SUBSYSTEM=="sound", KERNEL=="card*", ATTRS{idVendor}=="*", ATTRS{idProduct}=="*", DRIVERS=="snd-usb-audio", ATTR{id}="usb-audio-%n"
+
+# Generic ALSA devices - ensure proper permissions
+SUBSYSTEM=="sound", KERNEL=="controlC*", GROUP="audio", MODE="0664"
+SUBSYSTEM=="sound", KERNEL=="pcmC*", GROUP="audio", MODE="0664"
+SUBSYSTEM=="sound", KERNEL=="timer", GROUP="audio", MODE="0664"
+
+# HDA Intel devices (common on x86 systems)
+SUBSYSTEM=="sound", KERNEL=="card*", DRIVERS=="snd_hda_intel", ATTR{id}="hda-intel"
+
+# Raspberry Pi BCM2835 audio
+SUBSYSTEM=="sound", KERNEL=="card*", DRIVERS=="bcm2835_audio", ATTR{id}="bcm2835-audio"
+
+# DAC devices (various Raspberry Pi HATs)
+SUBSYSTEM=="sound", KERNEL=="card*", DRIVERS=="snd-rpi-simple", ATTR{id}="dac"
+SUBSYSTEM=="sound", KERNEL=="card*", DRIVERS=="snd-rpi-hifiberry-dacplus", ATTR{id}="dac"
+SUBSYSTEM=="sound", KERNEL=="card*", DRIVERS=="snd-rpi-iqaudio-dac", ATTR{id}="dac"
+
+# Trigger PulseAudio module loading when new audio devices are detected
+ACTION=="add", SUBSYSTEM=="sound", KERNEL=="card*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="sound.target"

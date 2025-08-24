@@ -10,10 +10,21 @@ services:
   audio:
     build: ./core/audio
     privileged: true
-    labels:
-      io.balena.features.dbus: 1
+    restart: on-failure
     ports:
       - 4317:4317
+    devices:
+      - /dev/snd:/dev/snd
+    environment:
+      - UDEV=on
+      - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/host/run/dbus/system_bus_socket
+      - AUDIO_LOG_LEVEL=info
+      - AUDIO_SAMPLE_RATE=48000
+      - AUDIO_BIT_DEPTH=s24le
+    labels:
+      io.balena.features.dbus: 1
+      io.balena.features.kernel-modules: 1
+      io.balena.features.firmware: 1
 
   sound-supervisor:
     build:
@@ -66,14 +77,6 @@ services:
     network_mode: host
     volumes:
       - spotifycache:/var/cache/raspotify
-
-  tidal:
-    build: ./plugins/tidal
-    restart: on-failure
-    privileged: true
-    network_mode: host
-    labels:
-      io.balena.features.dbus: 1
 
   # https://github.com/balenablocks/hostname
   hostname:

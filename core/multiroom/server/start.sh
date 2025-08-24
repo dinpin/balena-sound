@@ -30,6 +30,18 @@ fi
 if [[ "$MODE" == "MULTI_ROOM" ]]; then
   echo "Starting multi-room server..."
   
+  # Configure audio quality settings with defaults
+  AUDIO_SAMPLE_RATE=${AUDIO_SAMPLE_RATE:-48000}
+  AUDIO_BIT_DEPTH=${AUDIO_BIT_DEPTH:-24}
+  
+  echo "Multi-room Audio Quality Settings:"
+  echo "  Sample Rate: ${AUDIO_SAMPLE_RATE}Hz"
+  echo "  Bit Depth: ${AUDIO_BIT_DEPTH}-bit"
+  
+  # Update snapserver configuration with current audio settings
+  sed -i "s/%AUDIO_SAMPLE_RATE%/$AUDIO_SAMPLE_RATE/g" /etc/snapserver.conf
+  sed -i "s/%AUDIO_BIT_DEPTH%/$AUDIO_BIT_DEPTH/g" /etc/snapserver.conf
+  
   # Wait for PulseAudio to be ready (critical for snapserver to work)
   echo "Waiting for PulseAudio at tcp://audio:4317..."
   retries=0

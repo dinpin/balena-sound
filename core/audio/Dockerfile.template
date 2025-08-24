@@ -1,7 +1,19 @@
-# hadolint ignore=DL3006
-FROM bh.cr/balenalabs/audio-%%BALENA_ARCH%%
+FROM debian:bookworm-slim
 
+# Install only what we need
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pulseaudio \
+    pulseaudio-utils \
+    alsa-utils \
+    curl \
+    iproute2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the original balena-sound files
 WORKDIR /usr/src
 COPY . .
+
+# Make sure start script is executable
+RUN chmod +x /usr/src/start.sh
 
 CMD [ "/bin/bash", "/usr/src/start.sh" ]

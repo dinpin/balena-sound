@@ -17,10 +17,13 @@ echo "Device name: ${SOUND_DEVICE_NAME:-${DEVICE_NAME:-$BALENA_DEVICE_NAME_AT_IN
 # Skip avahi daemon startup completely - mDNS discovery works via system services
 echo "Skipping avahi daemon startup - using system mDNS services"
 
+# Configure PulseAudio connection
+export PULSE_SERVER="tcp:audio:4317"
+
 # Wait for PulseAudio to be available
 echo "Waiting for PulseAudio server..."
 timeout=30
-while ! curl -s http://localhost:4317 > /dev/null 2>&1; do
+while ! pactl info > /dev/null 2>&1; do
     sleep 1
     timeout=$((timeout - 1))
     if [ $timeout -eq 0 ]; then
@@ -33,6 +36,23 @@ echo "PulseAudio server is available"
 # Create shairport-sync configuration with ALSA backend and high-quality audio settings
 echo "Starting Shairport Sync with custom configuration"
 echo "Configuration written to /etc/shairport-sync.conf"
+
+# Configure audio quality settings with defaults
+AUDIO_SAMPLE_RATE=${AUDIO_SAMPLE_RATE:-48000}
+AUDIO_BIT_DEPTH=${AUDIO_BIT_DEPTH:-24}
+
+# Determine AirPlay audio format based on bit depth
+case "$AUDIO_BIT_DEPTH" in
+  16) AIRPLAY_FORMAT="S16_LE" ;;
+  24) AIRPLAY_FORMAT="S24_3LE" ;;
+  32) AIRPLAY_FORMAT="S32_LE" ;;
+  *) AIRPLAY_FORMAT="S24_3LE"; AUDIO_BIT_DEPTH=24 ;;
+esac
+
+echo "AirPlay Audio Quality Settings:"
+echo "  Sample Rate: ${AUDIO_SAMPLE_RATE}Hz"
+echo "  Bit Depth: ${AUDIO_BIT_DEPTH}-bit"
+echo "  Format: ${AIRPLAY_FORMAT}"
 
 # Use SOUND_DEVICE_NAME if available, otherwise fall back to DEVICE_NAME or BALENA_DEVICE_NAME_AT_INIT
 AIRPLAY_NAME="${SOUND_DEVICE_NAME:-${DEVICE_NAME:-$BALENA_DEVICE_NAME_AT_INIT}}"
@@ -66,8 +86,8 @@ alsa = {
     output_device = "default";
     mixer_control_name = "PCM";
     mixer_device = "default";
-    output_rate = 48000;
-    output_format = "S24_3LE";
+    output_rate = $AUDIO_SAMPLE_RATE;
+    output_format = "$AIRPLAY_FORMAT";
     disable_synchronization = "no";
     period_size = 1024;
     buffer_size = 8192;
