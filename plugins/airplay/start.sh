@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 
-if [[ -n "$SOUND_DISABLE_AIRPLAY" ]]; then
+if [ -n "$SOUND_DISABLE_AIRPLAY" ]; then
   echo "Airplay is disabled, exiting..."
   exit 0
 fi
@@ -12,37 +12,17 @@ SOUND_DEVICE_NAME=${SOUND_DEVICE_NAME:-"balenaSound AirPlay $(echo "$BALENA_DEVI
 echo "Starting AirPlay plugin..."
 echo "Device name: $SOUND_DEVICE_NAME"
 
-# Start avahi-daemon without D-Bus to avoid the looping issue
-echo "Starting avahi daemon"
-avahi-daemon --daemonize --no-drop-root --no-chroot 2>/dev/null || {
-    echo "Avahi daemon failed to start, continuing without mDNS discovery"
-}
+# Skip avahi daemon startup - device discovery is working without it
+echo "Skipping avahi daemon startup - mDNS discovery working via system"
 
-# Wait a moment for avahi to initialize
-sleep 3
+# ALSA bridge will connect to PulseAudio automatically when audio plays
+echo "Using ALSA bridge for PulseAudio connectivity"
 
-# Wait for PulseAudio to be available
-echo "Waiting for PulseAudio server..."
-timeout=30
-while [ $timeout -gt 0 ]; do
-    if nc -z localhost 4317 2>/dev/null; then
-        echo "PulseAudio server is available"
-        break
-    fi
-    echo "Waiting for PulseAudio... ($timeout seconds remaining)"
-    sleep 1
-    timeout=$((timeout - 1))
-done
-
-if [ $timeout -eq 0 ]; then
-    echo "Warning: PulseAudio server not detected, continuing anyway"
-fi
-
-# Create shairport-sync configuration file with simplified settings
+# Create shairport-sync configuration file with high-quality 48kHz/24-bit audio (matching snapcast)
 cat > /tmp/shairport-sync.conf << EOF
 general = {
     name = "$SOUND_DEVICE_NAME";
-    output_backend = "pa";
+    output_backend = "alsa";
     mdns_backend = "avahi";
     port = 5000;
     udp_port_base = 6001;
@@ -53,11 +33,32 @@ general = {
     volume_range_db = 60;
     regtype = "_raop._tcp";
     playbook_mode = "stereo";
+    interpolation = "soxr";
+    output_format = "S24_3LE";
+    output_rate = 48000;
+    audio_backend_latency_offset_in_seconds = 0.0;
+    audio_backend_buffer_desired_length_in_seconds = 0.15;
+    drift_tolerance_in_seconds = 0.002;
+    resync_threshold_in_seconds = 0.05;
 };
 
-pa = {
-    application_name = "Shairport Sync";
-    server = "tcp:localhost:4317";
+alsa = {
+    output_device = "default";
+    mixer_control_name = "PCM";
+    output_rate = 48000;
+    output_format = "S24_3LE";
+    disable_synchronization = "no";
+    period_size = 1024;
+    buffer_size = 4096;
+    use_mmap_if_available = "yes";
+};
+
+soxr = {
+    quality = "very high";
+    precision = 28;
+    phase_response = 50;
+    passband_end = 0.95;
+    stopband_begin = 1.05;
 };
 
 sessioncontrol = {

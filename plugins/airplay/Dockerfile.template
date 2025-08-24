@@ -1,38 +1,44 @@
 # Build stage
-FROM alpine:3.18 AS builder
+FROM debian:bookworm-slim AS builder
 
-# Install build dependencies only
-RUN apk update && apk add --no-cache \
+# Install build dependencies - following official shairport-sync BUILD.md guide
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
     git \
     autoconf \
     automake \
     libtool \
-    build-base \
-    pkgconfig \
-    pulseaudio-dev \
-    avahi-dev \
-    libdaemon-dev \
-    popt-dev \
-    openssl-dev \
-    soxr-dev \
-    libconfig-dev
+    libpopt-dev \
+    libconfig-dev \
+    libasound2-dev \
+    avahi-daemon \
+    libavahi-client-dev \
+    libssl-dev \
+    libsoxr-dev \
+    libplist-dev \
+    libsodium-dev \
+    uuid-dev \
+    libgcrypt-dev \
+    xxd \
+    libplist-utils \
+    libavutil-dev \
+    libavcodec-dev \
+    libavformat-dev \
+    pkg-config \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-# Clone and build shairport-sync from dev branch
+# Clone and build shairport-sync from dev branch with ALSA support only
 RUN git clone --depth 1 --branch development https://github.com/mikebrady/shairport-sync.git /tmp/shairport-sync && \
     cd /tmp/shairport-sync && \
     autoreconf -i -f && \
     ./configure \
-        --with-pa \
+        --sysconfdir=/etc \
+        --with-alsa \
+        --with-soxr \
         --with-avahi \
         --with-ssl=openssl \
-        --with-soxr \
-        --with-metadata \
-        --with-stdout \
-        --with-pipe \
-        --sysconfdir=/etc \
-        --with-systemd \
-        --with-dbus-interface \
-        --with-mpris-interface && \
+        --with-airplay-2 && \
     make -j$(nproc) && \
     make install-strip
 
@@ -44,79 +50,56 @@ RUN git clone --depth 1 https://github.com/mikebrady/nqptp.git /tmp/nqptp && \
     make -j$(nproc) && \
     make install-strip
 
-# Runtime stage
-FROM alpine:3.18
+# Runtime stage - use same Debian base for consistency
+FROM debian:bookworm-slim
 
 WORKDIR /usr/src
 
-# Set environment variables
 ENV DBUS_SYSTEM_BUS_ADDRESS=unix:path=/host/run/dbus/system_bus_socket
+
+# shairport-sync will use ALSA, and we use ALSA bridge to connect to PulseAudio
 ENV PULSE_SERVER=tcp:localhost:4317
 
-# Install only runtime dependencies
-RUN apk update && apk add --no-cache \
-    pulseaudio \
-    avahi \
-    avahi-tools \
-    libdaemon \
-    popt \
-    openssl \
-    soxr \
-    libconfig \
+# Install runtime dependencies and ALSA bridge
+RUN apt-get update && apt-get install -y --no-install-recommends \
     supervisor \
-    dbus \
-    netcat-openbsd \
-    && \
-    # Create avahi user and group (ignore if they already exist)
-    addgroup -g 86 -S avahi 2>/dev/null || true && \
-    adduser -u 86 -D -S -G avahi avahi 2>/dev/null || true && \
-    # Create necessary directories
-    mkdir -p /var/run/avahi-daemon /var/run/dbus /etc/avahi && \
-    chown avahi:avahi /var/run/avahi-daemon 2>/dev/null || true && \
-    # Clean package cache
-    rm -rf /var/cache/apk/*
+    curl \
+    # ALSA bridge dependencies
+    libasound2 \
+    libasound2-plugins \
+    libpulse0 \
+    # Runtime dependencies for our compiled binaries
+    avahi-daemon \
+    avahi-utils \
+    libavahi-client3 \
+    libdaemon0 \
+    libpopt0 \
+    openssl \
+    libsoxr0 \
+    libconfig9 \
+    libplist3 \
+    libsodium23 \
+    util-linux \
+    libgcrypt20 \
+    libavutil57 \
+    libavcodec59 \
+    libavformat59 \
+    libswresample4 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up ALSA bridge for PulseAudio connectivity
+RUN echo "pcm.!default {\n\
+    type pulse\n\
+    server \"tcp:localhost:4317\"\n\
+}\n\
+ctl.!default {\n\
+    type pulse\n\
+    server \"tcp:localhost:4317\"\n\
+}" > /etc/asound.conf
 
 # Copy binaries from builder stage
 COPY --from=builder /usr/local/bin/shairport-sync /usr/local/bin/shairport-sync
 COPY --from=builder /usr/local/bin/nqptp /usr/local/bin/nqptp
-
-# Create avahi daemon configuration
-RUN echo '[server]' > /etc/avahi/avahi-daemon.conf && \
-    echo 'host-name-from-machine-id=no' >> /etc/avahi/avahi-daemon.conf && \
-    echo 'domain-name=local' >> /etc/avahi/avahi-daemon.conf && \
-    echo 'browse-domains=' >> /etc/avahi/avahi-daemon.conf && \
-    echo 'use-ipv4=yes' >> /etc/avahi/avahi-daemon.conf && \
-    echo 'use-ipv6=no' >> /etc/avahi/avahi-daemon.conf && \
-    echo 'allow-interfaces=' >> /etc/avahi/avahi-daemon.conf && \
-    echo 'deny-interfaces=' >> /etc/avahi/avahi-daemon.conf && \
-    echo 'check-response-ttl=no' >> /etc/avahi/avahi-daemon.conf && \
-    echo 'use-iff-running=no' >> /etc/avahi/avahi-daemon.conf && \
-    echo 'enable-dbus=no' >> /etc/avahi/avahi-daemon.conf && \
-    echo 'disallow-other-stacks=no' >> /etc/avahi/avahi-daemon.conf && \
-    echo '' >> /etc/avahi/avahi-daemon.conf && \
-    echo '[wide-area]' >> /etc/avahi/avahi-daemon.conf && \
-    echo 'enable-wide-area=yes' >> /etc/avahi/avahi-daemon.conf && \
-    echo '' >> /etc/avahi/avahi-daemon.conf && \
-    echo '[publish]' >> /etc/avahi/avahi-daemon.conf && \
-    echo 'disable-publishing=no' >> /etc/avahi/avahi-daemon.conf && \
-    echo 'disable-user-service-publishing=no' >> /etc/avahi/avahi-daemon.conf && \
-    echo 'add-service-cookie=no' >> /etc/avahi/avahi-daemon.conf && \
-    echo 'publish-addresses=yes' >> /etc/avahi/avahi-daemon.conf && \
-    echo 'publish-hinfo=yes' >> /etc/avahi/avahi-daemon.conf && \
-    echo 'publish-workstation=yes' >> /etc/avahi/avahi-daemon.conf && \
-    echo 'publish-domain=yes' >> /etc/avahi/avahi-daemon.conf && \
-    echo '' >> /etc/avahi/avahi-daemon.conf && \
-    echo '[reflector]' >> /etc/avahi/avahi-daemon.conf && \
-    echo 'enable-reflector=no' >> /etc/avahi/avahi-daemon.conf && \
-    echo '' >> /etc/avahi/avahi-daemon.conf && \
-    echo '[rlimits]' >> /etc/avahi/avahi-daemon.conf && \
-    echo 'rlimit-as=' >> /etc/avahi/avahi-daemon.conf && \
-    echo 'rlimit-core=0' >> /etc/avahi/avahi-daemon.conf && \
-    echo 'rlimit-data=8388608' >> /etc/avahi/avahi-daemon.conf && \
-    echo 'rlimit-fsize=0' >> /etc/avahi/avahi-daemon.conf && \
-    echo 'rlimit-nofile=768' >> /etc/avahi/avahi-daemon.conf && \
-    echo 'rlimit-stack=8388608' >> /etc/avahi/avahi-daemon.conf && \
-    echo 'rlimit-nproc=3' >> /etc/avahi/avahi-daemon.conf
 
 # Copy configuration files
 COPY start.sh /usr/src/
