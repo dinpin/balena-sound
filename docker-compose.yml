@@ -67,6 +67,14 @@ services:
     volumes:
       - spotifycache:/var/cache/raspotify
 
+  tidal:
+    build: ./plugins/tidal
+    restart: on-failure
+    privileged: true
+    network_mode: host
+    labels:
+      io.balena.features.dbus: 1
+
   # https://github.com/balenablocks/hostname
   hostname:
     build: ./core/hostname

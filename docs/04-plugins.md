@@ -30,10 +30,36 @@ Manual authentication will let you stream audio over the internet from a client 
 The following plugins are available to be added to your balenaSound installation:
 
 - UPnP: Universal Plug and Play
-- (Work in progress) Tidal Connect: See [PR #399](https://github.com/balena-io-experimental/balena-sound/pull/399)
+- Tidal Connect: High-quality streaming from Tidal
 - (Work in progress) Roon Bridge: See [PR #388](https://github.com/balena-io-experimental/balena-sound/pull/388)
 
 Installing these plugins is a more involved process than just deploying the off the shelf version of balenaSound. You'll need to edit the contents of the `docker-compose.yml` file before deploying the app. This means that you won't be able to deploy using the "Deploy with balena" button; you either need to use the [CLI to deploy](https://balena-labs-projects.github.io/balena-sound/getting-started#cli-deploy) or use "Deploy with balena" with your own forked version of the project. If you don't feel comfortable performing these steps or need some help along the way hit us up at our [forums](https://forums.balena.io) and we'll gladly help you out.
+
+### Tidal Connect
+
+To install Tidal Connect plugin add the following to the `services` section on your `docker-compose.yml` file:
+
+```
+  tidal:
+    build: ./plugins/tidal
+    restart: on-failure
+    privileged: true
+    network_mode: host
+    labels:
+      io.balena.features.dbus: 1
+```
+
+Tidal Connect requires a Tidal HiFi subscription and supports high-quality audio streaming including MQA (Master Quality Authenticated) content. The plugin will appear as a Tidal Connect device in your Tidal app.
+
+**Configuration variables:**
+
+- `SOUND_DISABLE_TIDAL`: Disable the Tidal Connect plugin
+- `SOUND_TIDAL_FRIENDLY_NAME`: Custom device name (defaults to "balenaSound Tidal <device_id>")
+- `SOUND_TIDAL_MODEL_NAME`: Model name displayed in Tidal app (defaults to "balenaSound Tidal Connect")
+- `SOUND_TIDAL_MQA_CODEC`: Enable MQA codec support (defaults to "true")
+- `SOUND_TIDAL_MQA_PASSTHROUGH`: Enable MQA passthrough (defaults to "false")
+- `SOUND_TIDAL_LOG_LEVEL`: Log level 0-6, where 0=OFF, 3=WARNING, 6=TRACE (defaults to "3")
+- `SOUND_TIDAL_NETIF`: Network interface for device ID (optional, e.g., "wlan0")
 
 ### UPnP
 
