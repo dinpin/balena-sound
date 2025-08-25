@@ -3,126 +3,6 @@ set -e
 
 echo "Starting PipeWire audio server with PulseAudio compatibility..."
 
-# Function to create audio routing links
-function create_audio_link() {
-  local SOURCE="$1"
-  local SINK="$2"
-  local LATENCY="${3:-200}"
-  
-  echo "Creating link: $SOURCE -> $SINK (latency: ${LATENCY}ms)"
-  
-  # Create a link configuration file for WirePlumber
-  cat > "/etc/wireplumber/main.lua.d/99-link-${SOURCE//[.]/-}-to-${SINK//[.]/-}.lua" << EOFSCRIPT
-rule = {
-  matches = {
-    {
-      { "node.name", "equals", "$SOURCE" },
-    },
-  },
-  apply_properties = {
-    ["node.latency"] = "${LATENCY}/48000",
-  },
-}
-table.insert(alsa_monitor.rules, rule)
-
-link_rule = {
-  matches = {
-    {
-      { "node.name", "equals", "$SOURCE" },
-    },
-  },
-  apply_properties = {
-    ["link.output.node"] = "$SINK",
-    ["link.input.port"] = 0,
-    ["link.output.port"] = 0,
-    ["object.linger"] = true,
-  },
-}
-table.insert(default_links.rules, link_rule)
-EOFSCRIPT
-}
-
-# Function to route input sink based on mode
-function route_input_sink() {
-  local MODE="$1"
-  
-  case "$MODE" in
-    "STANDALONE" | "MULTI_ROOM_CLIENT")
-      create_audio_link "balena-sound.input" "balena-sound.output" "$SOUND_INPUT_LATENCY"
-      echo "Routing 'balena-sound.input' to 'balena-sound.output'."
-      ;;
-    
-    "MULTI_ROOM" | *)
-      create_audio_link "balena-sound.input" "snapcast" "$SOUND_INPUT_LATENCY"
-      echo "Routing 'balena-sound.input' to 'snapcast'."
-      ;;
-  esac
-}
-
-# Function to route output to hardware
-function route_output_sink() {
-  local OUTPUT_LATENCY="${SOUND_OUTPUT_LATENCY:-200}"
-  
-  # Wait for hardware sink to be available
-  echo "Will route 'balena-sound.output' to hardware sink when available."
-  
-  # Create a script to link output to hardware dynamically
-  cat > "/etc/wireplumber/main.lua.d/98-output-to-hardware.lua" << EOFSCRIPT
--- Route balena-sound.output to the first available hardware sink
-rule = {
-  matches = {
-    {
-      { "media.class", "equals", "Audio/Sink" },
-      { "node.name", "matches", "alsa_output.*" },
-    },
-  },
-  apply_properties = {
-    ["priority.session"] = 1000,
-  },
-}
-table.insert(alsa_monitor.rules, rule)
-
--- Create link from balena-sound.output monitor to hardware
-link_rule = {
-  matches = {
-    {
-      { "node.name", "equals", "balena-sound.output" },
-    },
-  },
-  apply_properties = {
-    ["link.output.node"] = "~alsa_output.*",
-    ["link.passive"] = false,
-    ["node.latency"] = "${OUTPUT_LATENCY}/48000",
-  },
-}
-table.insert(default_links.rules, link_rule)
-EOFSCRIPT
-}
-
-# Function to route hardware input if enabled
-function route_input_source() {
-  if [[ -n "$SOUND_ENABLE_SOUNDCARD_INPUT" ]]; then
-    echo "Enabling hardware input routing..."
-    
-    cat > "/etc/wireplumber/main.lua.d/97-hardware-input.lua" << EOFSCRIPT
--- Route hardware input to balena-sound.input
-link_rule = {
-  matches = {
-    {
-      { "media.class", "equals", "Audio/Source" },
-      { "node.name", "matches", "alsa_input.*" },
-    },
-  },
-  apply_properties = {
-    ["link.output.node"] = "balena-sound.input",
-    ["link.passive"] = false,
-  },
-}
-table.insert(default_links.rules, link_rule)
-EOFSCRIPT
-  fi
-}
-
 # Wait for sound supervisor
 SOUND_SUPERVISOR_PORT=${SOUND_SUPERVISOR_PORT:-80}
 SOUND_SUPERVISOR="$(ip route | awk '/default / { print $3 }'):$SOUND_SUPERVISOR_PORT"
@@ -140,14 +20,11 @@ echo "Audio mode: $MODE"
 # Get latency values
 SOUND_INPUT_LATENCY=${SOUND_INPUT_LATENCY:-200}
 SOUND_OUTPUT_LATENCY=${SOUND_OUTPUT_LATENCY:-200}
-export SOUND_INPUT_LATENCY
-export SOUND_OUTPUT_LATENCY
 
-# Configure audio routing
-echo "Setting audio routing rules..."
-route_input_sink "$MODE"
-route_output_sink
-route_input_source
+echo "Audio routing configuration:"
+echo "  Mode: $MODE"
+echo "  Input latency: ${SOUND_INPUT_LATENCY}ms"
+echo "  Output latency: ${SOUND_OUTPUT_LATENCY}ms"
 
 # Create FIFO for snapcast if in multiroom mode
 if [[ "$MODE" == "MULTI_ROOM" ]]; then
@@ -157,14 +34,17 @@ if [[ "$MODE" == "MULTI_ROOM" ]]; then
   fi
 fi
 
+# Set environment to suppress D-Bus session errors
+export DBUS_SESSION_BUS_ADDRESS=unix:path=/dev/null
+
 # Clean up any stale D-Bus PID files
 rm -f /run/dbus/dbus.pid /var/run/dbus/dbus.pid 2>/dev/null || true
 
-# Start D-Bus if not running (required for some PipeWire features)
+# Start system D-Bus if not running
 if ! pgrep -x "dbus-daemon" > /dev/null; then
-  echo "Starting D-Bus..."
+  echo "Starting system D-Bus..."
   mkdir -p /var/run/dbus
-  dbus-daemon --system --fork || echo "D-Bus already running or not needed"
+  dbus-daemon --system --fork 2>/dev/null || echo "D-Bus already running or not needed"
 fi
 
 # Clean up any existing PipeWire/PulseAudio instances
@@ -173,7 +53,7 @@ sleep 1
 
 # Start PipeWire
 echo "Starting PipeWire..."
-pipewire &
+pipewire 2>&1 | grep -v "Failed to connect to session bus" &
 PIPEWIRE_PID=$!
 
 # Wait for PipeWire to initialize
@@ -181,16 +61,37 @@ sleep 2
 
 # Start WirePlumber (session manager)
 echo "Starting WirePlumber..."
-wireplumber &
+wireplumber 2>&1 | grep -v "Failed to connect to session bus" &
 WIREPLUMBER_PID=$!
 
 # Wait for WirePlumber to initialize
-sleep 2
+sleep 3
 
 # Start PipeWire-Pulse (PulseAudio compatibility)
 echo "Starting PipeWire-Pulse (PulseAudio compatibility layer)..."
-pipewire-pulse &
+pipewire-pulse 2>&1 | grep -v "Failed to connect to session bus" &
 PIPEWIRE_PULSE_PID=$!
+
+# Wait for services to stabilize
+sleep 2
+
+# Create audio links using pw-link after services are running
+if [[ "$MODE" == "MULTI_ROOM" ]]; then
+  echo "Setting up multiroom audio routing..."
+  # Link balena-sound.input to snapcast
+  pw-link balena-sound.input:monitor_FL snapcast:playback_FL 2>/dev/null || true
+  pw-link balena-sound.input:monitor_FR snapcast:playback_FR 2>/dev/null || true
+else
+  echo "Setting up standalone audio routing..."
+  # Link balena-sound.input to balena-sound.output
+  pw-link balena-sound.input:monitor_FL balena-sound.output:playback_FL 2>/dev/null || true
+  pw-link balena-sound.input:monitor_FR balena-sound.output:playback_FR 2>/dev/null || true
+fi
+
+# Link balena-sound.output to hardware if available
+echo "Linking output to hardware..."
+pw-link balena-sound.output:monitor_FL alsa_output.*:playback_FL 2>/dev/null || true
+pw-link balena-sound.output:monitor_FR alsa_output.*:playback_FR 2>/dev/null || true
 
 # Function to handle shutdown
 cleanup() {

@@ -43,7 +43,6 @@ WORKDIR /usr/src
 COPY pipewire.conf /etc/pipewire/pipewire.conf
 COPY pipewire-pulse.conf /etc/pipewire/pipewire-pulse.conf
 COPY balena-sound.conf /etc/pipewire/pipewire.conf.d/99-balena-sound.conf
-COPY wireplumber.conf /etc/wireplumber/wireplumber.conf
 COPY start.sh /usr/src/start.sh
 
 # Make start script executable
