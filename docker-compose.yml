@@ -8,12 +8,17 @@ services:
   # -- Required for a fully featured installation of balenaSound
   # -- Mutiroom services can be removed if not using multiroom mode
   audio:
-    build: ./core/audio
+    build: ./core/audio-pipewire
     privileged: true
     labels:
       io.balena.features.dbus: 1
     ports:
       - 4317:4317
+    environment:
+      SOUND_MODE: "${SOUND_MODE}"
+      SOUND_INPUT_LATENCY: "${SOUND_INPUT_LATENCY}"
+      SOUND_OUTPUT_LATENCY: "${SOUND_OUTPUT_LATENCY}"
+      SOUND_ENABLE_SOUNDCARD_INPUT: "${SOUND_ENABLE_SOUNDCARD_INPUT}"
 
   sound-supervisor:
     build:
