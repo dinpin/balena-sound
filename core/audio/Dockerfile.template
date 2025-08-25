@@ -28,6 +28,8 @@ RUN apk add --no-cache \
 # Create necessary directories
 RUN mkdir -p /run/pipewire \
     && mkdir -p /run/pulse \
+    && mkdir -p /run/dbus \
+    && mkdir -p /var/run/dbus \
     && mkdir -p /etc/pipewire/pipewire.conf.d \
     && mkdir -p /etc/pipewire/pipewire-pulse.conf.d \
     && mkdir -p /etc/wireplumber/main.lua.d

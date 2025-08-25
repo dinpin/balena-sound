@@ -140,6 +140,8 @@ echo "Audio mode: $MODE"
 # Get latency values
 SOUND_INPUT_LATENCY=${SOUND_INPUT_LATENCY:-200}
 SOUND_OUTPUT_LATENCY=${SOUND_OUTPUT_LATENCY:-200}
+export SOUND_INPUT_LATENCY
+export SOUND_OUTPUT_LATENCY
 
 # Configure audio routing
 echo "Setting audio routing rules..."
@@ -158,7 +160,8 @@ fi
 # Start D-Bus if not running (required for some PipeWire features)
 if ! pgrep -x "dbus-daemon" > /dev/null; then
   echo "Starting D-Bus..."
-  dbus-daemon --system --fork
+  mkdir -p /var/run/dbus
+  dbus-daemon --system --fork || echo "D-Bus already running or not needed"
 fi
 
 # Clean up any existing PipeWire/PulseAudio instances
