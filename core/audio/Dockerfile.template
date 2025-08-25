@@ -1,19 +1,27 @@
 FROM debian:bookworm-slim
 
-# Install only what we need
+# Install PipeWire and related packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    pulseaudio \
-    pulseaudio-utils \
+    pipewire \
+    pipewire-pulse \
+    pipewire-alsa \
+    wireplumber \
     alsa-utils \
     curl \
     iproute2 \
+    pulseaudio-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the original balena-sound files
+# Copy the balena-sound files
 WORKDIR /usr/src
 COPY . .
 
 # Make sure start script is executable
 RUN chmod +x /usr/src/start.sh
+
+# Create necessary directories for PipeWire
+RUN mkdir -p /etc/pipewire/pipewire.conf.d \
+    && mkdir -p /etc/wireplumber/main.lua.d \
+    && mkdir -p /usr/share/pipewire/media-session.d
 
 CMD [ "/bin/bash", "/usr/src/start.sh" ]

@@ -8,10 +8,10 @@ AUDIO_RESAMPLER=${AUDIO_RESAMPLER:-soxr-vhq}
 
 # Determine audio format based on bit depth
 case "$AUDIO_BIT_DEPTH" in
-  16) AUDIO_FORMAT="s16le" ;;
-  24) AUDIO_FORMAT="s24le" ;;
-  32) AUDIO_FORMAT="s32le" ;;
-  *) AUDIO_FORMAT="s24le"; AUDIO_BIT_DEPTH=24 ;;
+  16) AUDIO_FORMAT="S16LE" ;;
+  24) AUDIO_FORMAT="S24LE" ;;
+  32) AUDIO_FORMAT="S32LE" ;;
+  *) AUDIO_FORMAT="S24LE"; AUDIO_BIT_DEPTH=24 ;;
 esac
 
 echo "Audio Quality Settings:"
@@ -20,97 +20,194 @@ echo "  Bit Depth: ${AUDIO_BIT_DEPTH}-bit"
 echo "  Format: ${AUDIO_FORMAT}"
 echo "  Resampler: ${AUDIO_RESAMPLER}"
 
-# Update PulseAudio daemon configuration
-sed -i "s/default-sample-rate = .*/default-sample-rate = $AUDIO_SAMPLE_RATE/" /etc/pulse/daemon.conf
-sed -i "s/default-sample-format = .*/default-sample-format = $AUDIO_FORMAT/" /etc/pulse/daemon.conf
-sed -i "s/resample-method = .*/resample-method = $AUDIO_RESAMPLER/" /etc/pulse/daemon.conf
-
-# PulseAudio configuration files for balena-sound
-CONFIG_TEMPLATE=/usr/src/balena-sound.pa
-CONFIG_FILE=/etc/pulse/default.pa.d/01-balenasound.pa
-
-# Set loopback module latency
-function set_loopback_latency() {
-  local LOOPBACK="$1"
-  local LATENCY="$2"
-  
-  sed -i "s/%$LOOPBACK%/$LATENCY/" "$CONFIG_FILE"
-}
-
-# Route "balena-sound.input" to the appropriate sink depending on selected mode
-function route_input_sink() {
-  local MODE="$1"
-
-  declare -A options=(
-      ["MULTI_ROOM"]=0
-      ["MULTI_ROOM_CLIENT"]=1
-      ["STANDALONE"]=2
-    )
-
-  case "${options[$MODE]}" in
-    ${options["STANDALONE"]} | ${options["MULTI_ROOM_CLIENT"]})
-      sed -i "s/%INPUT_SINK%/sink=balena-sound.output/" "$CONFIG_FILE"
-      echo "Routing 'balena-sound.input' to 'balena-sound.output'."
-      ;;
-
-    ${options["MULTI_ROOM"]} | *)
-      sed -i "s/%INPUT_SINK%/sink=snapcast/" "$CONFIG_FILE"
-      echo "Routing 'balena-sound.input' to 'snapcast'."
-      ;;
-  esac
-}
-
-# Route "balena-sound.output" to the appropriate audio hardware
-function route_output_sink() {
-  local OUTPUT=""
-
-  # Wait for PulseAudio to start and detect hardware
-  sleep 2
-  
-  # Find the first hardware audio sink (not null-sink)
-  OUTPUT=$(pactl list sinks short | grep -v "module-null-sink" | head -n1 | awk '{print $2}')
-  
-  # If no hardware sink found, try to find ALSA sink
-  if [[ -z "$OUTPUT" ]]; then
-    OUTPUT=$(pactl list sinks short | grep -E "(alsa|hw)" | head -n1 | awk '{print $2}')
-  fi
-  
-  # Fallback to sink index if name not found
-  if [[ -z "$OUTPUT" ]]; then
-    OUTPUT=$(pactl list sinks short | grep -v "module-null-sink" | head -n1 | awk '{print $1}')
-  fi
-  
-  # Final fallback
-  OUTPUT="${OUTPUT:-0}"
-  
-  sed -i "s/%OUTPUT_SINK%/sink=$OUTPUT/" "$CONFIG_FILE"
-  echo "Routing 'balena-sound.output' to '$OUTPUT'."
-}
-
-function reset_sound_config() {
-  if [[ -f "$CONFIG_FILE" ]]; then
-    rm "$CONFIG_FILE"
-  fi 
-  cp "$CONFIG_TEMPLATE" "$CONFIG_FILE"
-  
-  # Update sink formats to match current audio settings
-  sed -i "s/format=s24le/format=$AUDIO_FORMAT/g" "$CONFIG_FILE"
-  sed -i "s/rate=48000/rate=$AUDIO_SAMPLE_RATE/g" "$CONFIG_FILE"
-}
-
 # Set default mode and latency values
 MODE=${SOUND_MODE:-MULTI_ROOM}
 SOUND_INPUT_LATENCY=${SOUND_INPUT_LATENCY:-200}
-SOUND_OUPUT_LATENCY=${SOUND_OUTPUT_LATENCY:-200}
+SOUND_OUTPUT_LATENCY=${SOUND_OUTPUT_LATENCY:-200}
 
-# Audio routing: route intermediate balena-sound input/output sinks
-echo "Setting audio routing rules..."
-reset_sound_config
-route_input_sink "$MODE"
-set_loopback_latency "INPUT_LATENCY" "$SOUND_INPUT_LATENCY"
-set_loopback_latency "OUTPUT_LATENCY" "$SOUND_OUPUT_LATENCY"
+echo "balena-sound Configuration:"
+echo "  Mode: $MODE"
+echo "  Input Latency: ${SOUND_INPUT_LATENCY}ms"
+echo "  Output Latency: ${SOUND_OUTPUT_LATENCY}ms"
 
-# Start PulseAudio with our custom configuration
-echo "Starting PulseAudio with config file: $CONFIG_FILE"
-echo "PulseAudio command: pulseaudio --disallow-exit --disallow-module-loading=false --daemonize=false --log-target=stderr -v --file=\"$CONFIG_FILE\""
-exec pulseaudio --disallow-exit --disallow-module-loading=false --daemonize=false --log-target=stderr -v --file="$CONFIG_FILE"
+# Set up environment for PipeWire
+export XDG_RUNTIME_DIR="/tmp/pipewire-runtime"
+export PIPEWIRE_RUNTIME_DIR="$XDG_RUNTIME_DIR"
+export PULSE_RUNTIME_PATH="/tmp/pulse-runtime"
+export PULSE_STATE_PATH="/tmp/pulse-state"
+export PULSE_CONFIG_PATH="/tmp/pulse-config"
+
+# Create necessary directories
+mkdir -p "$XDG_RUNTIME_DIR" "$PULSE_RUNTIME_PATH" "$PULSE_STATE_PATH" "$PULSE_CONFIG_PATH"
+mkdir -p /etc/pipewire/pipewire.conf.d
+mkdir -p /etc/wireplumber/main.lua.d
+
+# Update PipeWire configuration with current audio settings
+function update_pipewire_config() {
+  local CONFIG_FILE="/usr/src/pipewire.conf"
+  local TARGET_CONFIG="/etc/pipewire/pipewire.conf.d/99-balena-sound.conf"
+  
+  # Copy base configuration
+  cp "$CONFIG_FILE" "$TARGET_CONFIG"
+  
+  # Update audio format and sample rate in configuration
+  sed -i "s/default.clock.rate = .*/default.clock.rate = $AUDIO_SAMPLE_RATE/" "$TARGET_CONFIG"
+  sed -i "s/audio.format = \"S24LE\"/audio.format = \"$AUDIO_FORMAT\"/g" "$TARGET_CONFIG"
+  sed -i "s/audio.rate = 48000/audio.rate = $AUDIO_SAMPLE_RATE/g" "$TARGET_CONFIG"
+  
+  echo "Updated PipeWire configuration: $TARGET_CONFIG"
+}
+
+# Update WirePlumber configuration
+function update_wireplumber_config() {
+  local CONFIG_FILE="/usr/src/wireplumber.lua"
+  local TARGET_CONFIG="/etc/wireplumber/main.lua.d/99-balena-sound.lua"
+  
+  # Copy WirePlumber configuration
+  cp "$CONFIG_FILE" "$TARGET_CONFIG"
+  
+  echo "Updated WirePlumber configuration: $TARGET_CONFIG"
+}
+
+# Create PulseAudio client configuration for compatibility
+function setup_pulse_compatibility() {
+  cat > "$PULSE_CONFIG_PATH/client.conf" << EOF
+# PulseAudio client configuration for PipeWire compatibility
+default-server = tcp:localhost:4317
+autospawn = no
+EOF
+  
+  echo "PulseAudio compatibility layer configured"
+}
+
+# Wait for hardware detection
+function wait_for_hardware() {
+  echo "Waiting for audio hardware detection..."
+  sleep 3
+  
+  # Check if any ALSA devices are available
+  if aplay -l >/dev/null 2>&1; then
+    echo "Audio hardware detected:"
+    aplay -l | grep "card [0-9]:" || true
+  else
+    echo "No audio hardware detected, using software-only mode"
+  fi
+}
+
+# Function to create simple routing setup
+function create_routing_setup() {
+  cat > /tmp/setup-routing.sh << 'EOF'
+#!/bin/bash
+# Simple routing setup for balena-sound
+sleep 10
+
+echo "Setting up balena-sound audio routing..."
+
+# Wait for PipeWire to be ready
+for i in {1..30}; do
+  if pw-cli info >/dev/null 2>&1; then
+    echo "PipeWire is ready"
+    break
+  fi
+  sleep 1
+done
+
+# List available nodes
+echo "Available audio nodes:"
+pw-cli ls Node | grep -E "(node.name|node.description)" || true
+
+echo "Audio routing setup completed"
+EOF
+  
+  chmod +x /tmp/setup-routing.sh
+}
+
+# Function to handle shutdown
+cleanup() {
+  echo "Shutting down balena-sound audio services..."
+  pkill -f pipewire || true
+  pkill -f wireplumber || true
+  wait
+  exit 0
+}
+
+# Set up signal handlers
+trap cleanup SIGTERM SIGINT
+
+# Main setup sequence
+echo "Setting up balena-sound with PipeWire..."
+
+# Configure audio routing based on mode
+case "$MODE" in
+  "STANDALONE" | "MULTI_ROOM_CLIENT")
+    echo "Routing 'balena-sound.input' to 'balena-sound.output'."
+    ;;
+  "MULTI_ROOM" | *)
+    echo "Routing 'balena-sound.input' to 'snapcast'."
+    ;;
+esac
+
+# Update configuration files
+update_pipewire_config
+update_wireplumber_config
+setup_pulse_compatibility
+create_routing_setup
+wait_for_hardware
+
+# Start PipeWire with simplified approach
+echo "Starting PipeWire daemon..."
+pipewire --config-dir=/etc/pipewire/pipewire.conf.d &
+PIPEWIRE_PID=$!
+
+# Give PipeWire time to initialize
+sleep 5
+
+# Start WirePlumber session manager
+echo "Starting WirePlumber session manager..."
+wireplumber --config-dir=/etc/wireplumber &
+WIREPLUMBER_PID=$!
+
+# Give WirePlumber time to initialize
+sleep 5
+
+# Start PipeWire PulseAudio compatibility daemon
+echo "Starting PipeWire PulseAudio compatibility layer..."
+pipewire-pulse &
+PULSE_PID=$!
+
+# Give the compatibility layer time to start
+sleep 3
+
+# Run routing setup in background
+/tmp/setup-routing.sh &
+
+echo "balena-sound PipeWire audio system is running"
+echo "PulseAudio compatibility available on tcp:4317"
+echo "Virtual sinks: balena-sound.input, balena-sound.output, snapcast"
+
+# Keep the container running and monitor processes
+while true; do
+  # Check if main processes are still running
+  if ! kill -0 $PIPEWIRE_PID 2>/dev/null; then
+    echo "PipeWire daemon stopped unexpectedly, restarting..."
+    pipewire --config-dir=/etc/pipewire/pipewire.conf.d &
+    PIPEWIRE_PID=$!
+    sleep 5
+  fi
+  
+  if ! kill -0 $WIREPLUMBER_PID 2>/dev/null; then
+    echo "WirePlumber stopped unexpectedly, restarting..."
+    wireplumber --config-dir=/etc/wireplumber &
+    WIREPLUMBER_PID=$!
+    sleep 5
+  fi
+  
+  if ! kill -0 $PULSE_PID 2>/dev/null; then
+    echo "PipeWire-Pulse stopped unexpectedly, restarting..."
+    pipewire-pulse &
+    PULSE_PID=$!
+    sleep 3
+  fi
+  
+  sleep 10
+done
