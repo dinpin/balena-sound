@@ -17,9 +17,9 @@ killall pipewire wireplumber pipewire-pulse 2>/dev/null || true
 rm -f /run/pipewire/pipewire-0 /run/pipewire/pipewire-0.lock
 sleep 1
 
-# Start PipeWire with explicit config
+# Start PipeWire
 echo "Starting PipeWire..."
-pipewire -c /etc/pipewire/pipewire.conf &
+pipewire &
 PIPEWIRE_PID=$!
 
 # Wait for PipeWire socket to be ready
