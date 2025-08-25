@@ -40,8 +40,6 @@ ENV PIPEWIRE_RUNTIME_DIR=/run/pipewire
 ENV PULSE_RUNTIME_PATH=/run/pulse
 ENV LD_LIBRARY_PATH=/usr/lib:/usr/lib/pipewire-0.3:/usr/lib/spa-0.2
 
-WORKDIR /usr/src
-
 # Copy configuration files and scripts
 COPY pipewire.conf /etc/pipewire/pipewire.conf
 COPY pipewire-pulse.conf /etc/pipewire/pipewire-pulse.conf
@@ -49,6 +47,8 @@ COPY start.sh /usr/src/start.sh
 
 # Make start script executable
 RUN chmod +x /usr/src/start.sh
+
+WORKDIR /usr/src
 
 # Expose PulseAudio compatibility port
 EXPOSE 4317
