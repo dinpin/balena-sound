@@ -36,6 +36,9 @@ RUN mkdir -p /run/pipewire \
 
 # Set up user for PipeWire (running as root for container compatibility)
 ENV XDG_RUNTIME_DIR=/run/pipewire
+ENV PIPEWIRE_RUNTIME_DIR=/run/pipewire
+ENV PULSE_RUNTIME_PATH=/run/pulse
+ENV LD_LIBRARY_PATH=/usr/lib:/usr/lib/pipewire-0.3:/usr/lib/spa-0.2
 
 WORKDIR /usr/src
 
