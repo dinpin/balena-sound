@@ -12,7 +12,7 @@ function create_audio_link() {
   echo "Creating link: $SOURCE -> $SINK (latency: ${LATENCY}ms)"
   
   # Create a link configuration file for WirePlumber
-  cat > "/etc/wireplumber/main.lua.d/99-link-${SOURCE//[.]/-}-to-${SINK//[.]/-}.lua" << EOF
+  cat > "/etc/wireplumber/main.lua.d/99-link-${SOURCE//[.]/-}-to-${SINK//[.]/-}.lua" << EOFSCRIPT
 rule = {
   matches = {
     {
@@ -39,7 +39,7 @@ link_rule = {
   },
 }
 table.insert(default_links.rules, link_rule)
-EOF
+EOFSCRIPT
 }
 
 # Function to route input sink based on mode
@@ -67,7 +67,7 @@ function route_output_sink() {
   echo "Will route 'balena-sound.output' to hardware sink when available."
   
   # Create a script to link output to hardware dynamically
-  cat > "/etc/wireplumber/main.lua.d/98-output-to-hardware.lua" << EOF
+  cat > "/etc/wireplumber/main.lua.d/98-output-to-hardware.lua" << EOFSCRIPT
 -- Route balena-sound.output to the first available hardware sink
 rule = {
   matches = {
@@ -96,7 +96,7 @@ link_rule = {
   },
 }
 table.insert(default_links.rules, link_rule)
-EOF
+EOFSCRIPT
 }
 
 # Function to route hardware input if enabled
@@ -104,7 +104,7 @@ function route_input_source() {
   if [[ -n "$SOUND_ENABLE_SOUNDCARD_INPUT" ]]; then
     echo "Enabling hardware input routing..."
     
-    cat > "/etc/wireplumber/main.lua.d/97-hardware-input.lua" << EOF
+    cat > "/etc/wireplumber/main.lua.d/97-hardware-input.lua" << EOFSCRIPT
 -- Route hardware input to balena-sound.input
 link_rule = {
   matches = {
@@ -119,7 +119,7 @@ link_rule = {
   },
 }
 table.insert(default_links.rules, link_rule)
-EOF
+EOFSCRIPT
   fi
 }
 
@@ -156,6 +156,9 @@ if [[ "$MODE" == "MULTI_ROOM" ]]; then
     mkfifo /tmp/snapfifo
   fi
 fi
+
+# Clean up any stale D-Bus PID files
+rm -f /run/dbus/dbus.pid /var/run/dbus/dbus.pid 2>/dev/null || true
 
 # Start D-Bus if not running (required for some PipeWire features)
 if ! pgrep -x "dbus-daemon" > /dev/null; then
