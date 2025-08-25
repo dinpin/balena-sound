@@ -3,21 +3,23 @@ set -e
 
 echo "Starting PipeWire audio server with PulseAudio compatibility..."
 
-# Simple environment setup
+# Set up environment for PipeWire
 export XDG_RUNTIME_DIR=/run/pipewire
 export PIPEWIRE_RUNTIME_DIR=/run/pipewire
 export PULSE_RUNTIME_PATH=/run/pulse
+export PIPEWIRE_REMOTE=/run/pipewire/pipewire-0
 
 # Create runtime directories
 mkdir -p /run/pipewire /run/pulse
 
 # Clean up any existing instances
 killall pipewire wireplumber pipewire-pulse 2>/dev/null || true
+rm -f /run/pipewire/pipewire-0 /run/pipewire/pipewire-0.lock
 sleep 1
 
-# Start PipeWire (includes PulseAudio compatibility)
+# Start PipeWire with explicit config
 echo "Starting PipeWire..."
-pipewire &
+pipewire -c /etc/pipewire/pipewire.conf &
 PIPEWIRE_PID=$!
 
 # Wait for PipeWire socket to be ready
