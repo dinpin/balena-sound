@@ -8,6 +8,9 @@ export XDG_RUNTIME_DIR=/run/pipewire
 export PIPEWIRE_RUNTIME_DIR=/run/pipewire
 export PULSE_RUNTIME_PATH=/run/pulse
 
+# Create runtime directories
+mkdir -p /run/pipewire /run/pulse
+
 # Clean up any existing instances
 killall pipewire wireplumber pipewire-pulse 2>/dev/null || true
 sleep 1
@@ -17,7 +20,15 @@ echo "Starting PipeWire..."
 pipewire &
 PIPEWIRE_PID=$!
 
-sleep 2
+# Wait for PipeWire socket to be ready
+echo "Waiting for PipeWire to be ready..."
+for i in {1..10}; do
+  if [ -S /run/pipewire/pipewire-0 ]; then
+    echo "PipeWire is ready"
+    break
+  fi
+  sleep 1
+done
 
 # Start WirePlumber (manages audio devices)
 echo "Starting WirePlumber..."
