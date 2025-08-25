@@ -19,7 +19,11 @@ RUN apk add --no-cache \
     eudev \
     # For network audio support
     avahi \
-    avahi-tools
+    avahi-tools \
+    # Additional packages for Raspberry Pi compatibility
+    alsa-plugins-pulse \
+    # IP tools for network detection
+    iproute2
 
 # Create necessary directories
 RUN mkdir -p /run/pipewire \
