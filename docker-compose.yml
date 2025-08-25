@@ -8,7 +8,7 @@ services:
   # -- Required for a fully featured installation of balenaSound
   # -- Mutiroom services can be removed if not using multiroom mode
   audio:
-    build: ./core/audio-pipewire
+    build: ./core/audio
     privileged: true
     labels:
       io.balena.features.dbus: 1
