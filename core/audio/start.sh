@@ -5,7 +5,8 @@ echo "Starting PipeWire audio server with PulseAudio compatibility..."
 
 # Simple environment setup
 export XDG_RUNTIME_DIR=/run/pipewire
-export DBUS_SESSION_BUS_ADDRESS=unix:path=/dev/null
+export PIPEWIRE_RUNTIME_DIR=/run/pipewire
+export PULSE_RUNTIME_PATH=/run/pulse
 
 # Clean up any existing instances
 killall pipewire wireplumber pipewire-pulse 2>/dev/null || true
