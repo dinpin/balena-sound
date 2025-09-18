@@ -4,6 +4,8 @@ set -e
 # PulseAudio configuration files for balena-sound
 CONFIG_TEMPLATE=/usr/src/balena-sound.pa
 CONFIG_FILE=/etc/pulse/default.pa.d/01-balenasound.pa
+DAEMON_CONFIG_TEMPLATE=/usr/src/daemon.conf
+DAEMON_CONFIG_FILE=/etc/pulse/daemon.conf
 
 # Set loopback module latency
 function set_loopback_latency() {
@@ -69,6 +71,12 @@ function reset_sound_config() {
     rm "$CONFIG_FILE"
   fi 
   cp "$CONFIG_TEMPLATE" "$CONFIG_FILE"
+  
+  # Copy daemon configuration for high-quality audio (48kHz/24-bit)
+  if [[ -f "$DAEMON_CONFIG_TEMPLATE" ]]; then
+    cp "$DAEMON_CONFIG_TEMPLATE" "$DAEMON_CONFIG_FILE"
+    echo "Applied high-quality audio configuration (48kHz/24-bit)"
+  fi
 }
 
 SOUND_SUPERVISOR_PORT=${SOUND_SUPERVISOR_PORT:-80}
