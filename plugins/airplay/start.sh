@@ -48,6 +48,8 @@ general = {
     udp_port_range = 10;
     drift_tolerance_in_seconds = 0.002;
     resync_threshold_in_seconds = 0.050;
+    default_airplay_volume = 0.0;
+    ignore_volume_control = "yes";
 };
 
 metadata = {
