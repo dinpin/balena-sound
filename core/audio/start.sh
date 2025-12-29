@@ -103,4 +103,11 @@ if [[ -n "$SOUND_ENABLE_SOUNDCARD_INPUT" ]]; then
   route_input_source
 fi
 
+# Clean up stale PulseAudio runtime files to prevent "Daemon already running" error on restart
+echo "Cleaning up stale PulseAudio runtime files..."
+rm -rf /var/run/pulse /root/.pulse /root/.config/pulse/*-runtime 2>/dev/null || true
+pkill -9 pulseaudio 2>/dev/null || true
+sleep 0.5
+
+echo "Starting PulseAudio..."
 exec pulseaudio
