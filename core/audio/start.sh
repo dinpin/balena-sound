@@ -4,8 +4,6 @@ set -e
 # PulseAudio configuration files for balena-sound
 CONFIG_TEMPLATE=/usr/src/balena-sound.pa
 CONFIG_FILE=/etc/pulse/default.pa.d/01-balenasound.pa
-DAEMON_CONFIG_TEMPLATE=/usr/src/daemon.conf
-DAEMON_CONFIG_FILE=/etc/pulse/daemon.conf
 
 # Set loopback module latency
 function set_loopback_latency() {
@@ -71,14 +69,6 @@ function reset_sound_config() {
     rm "$CONFIG_FILE"
   fi 
   cp "$CONFIG_TEMPLATE" "$CONFIG_FILE"
-  
-  # Copy daemon configuration for high-quality audio
-  if [[ -f "$DAEMON_CONFIG_TEMPLATE" ]]; then
-    cp "$DAEMON_CONFIG_TEMPLATE" "$DAEMON_CONFIG_FILE"
-    local SAMPLE_RATE=$(grep "^default-sample-rate" "$DAEMON_CONFIG_TEMPLATE" | awk '{print $3}')
-    local SAMPLE_FORMAT=$(grep "^default-sample-format" "$DAEMON_CONFIG_TEMPLATE" | awk '{print $3}')
-    echo "Applied high-quality audio configuration (${SAMPLE_RATE:-44100}Hz/${SAMPLE_FORMAT:-s24le})"
-  fi
 }
 
 SOUND_SUPERVISOR_PORT=${SOUND_SUPERVISOR_PORT:-80}
@@ -105,13 +95,4 @@ if [[ -n "$SOUND_ENABLE_SOUNDCARD_INPUT" ]]; then
   route_input_source
 fi
 
-# Clean up stale PulseAudio runtime files to prevent "Daemon already running" error on restart
-echo "Cleaning up stale PulseAudio runtime files..."
-rm -rf /var/run/pulse/* /root/.pulse /root/.config/pulse/*-runtime 2>/dev/null || true
-pkill -9 pulseaudio 2>/dev/null || true
-# Ensure runtime directory exists
-mkdir -p /var/run/pulse
-sleep 0.5
-
-echo "Starting PulseAudio..."
 exec pulseaudio
