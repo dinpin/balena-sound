@@ -72,10 +72,12 @@ function reset_sound_config() {
   fi 
   cp "$CONFIG_TEMPLATE" "$CONFIG_FILE"
   
-  # Copy daemon configuration for high-quality audio (48kHz/24-bit)
+  # Copy daemon configuration for high-quality audio
   if [[ -f "$DAEMON_CONFIG_TEMPLATE" ]]; then
     cp "$DAEMON_CONFIG_TEMPLATE" "$DAEMON_CONFIG_FILE"
-    echo "Applied high-quality audio configuration (48kHz/24-bit)"
+    local SAMPLE_RATE=$(grep "^default-sample-rate" "$DAEMON_CONFIG_TEMPLATE" | awk '{print $3}')
+    local SAMPLE_FORMAT=$(grep "^default-sample-format" "$DAEMON_CONFIG_TEMPLATE" | awk '{print $3}')
+    echo "Applied high-quality audio configuration (${SAMPLE_RATE:-44100}Hz/${SAMPLE_FORMAT:-s24le})"
   fi
 }
 
