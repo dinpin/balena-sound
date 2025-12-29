@@ -105,8 +105,10 @@ fi
 
 # Clean up stale PulseAudio runtime files to prevent "Daemon already running" error on restart
 echo "Cleaning up stale PulseAudio runtime files..."
-rm -rf /var/run/pulse /root/.pulse /root/.config/pulse/*-runtime 2>/dev/null || true
+rm -rf /var/run/pulse/* /root/.pulse /root/.config/pulse/*-runtime 2>/dev/null || true
 pkill -9 pulseaudio 2>/dev/null || true
+# Ensure runtime directory exists
+mkdir -p /var/run/pulse
 sleep 0.5
 
 echo "Starting PulseAudio..."
