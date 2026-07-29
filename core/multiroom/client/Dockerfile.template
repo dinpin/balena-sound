@@ -1,5 +1,5 @@
 # Build stage
-FROM debian:bullseye-slim AS build
+FROM debian:trixie-slim AS build
 
 WORKDIR /usr/src
 
@@ -10,6 +10,7 @@ RUN apt-get update && \
         build-essential \
         cmake \
         git \
+        curl \
         libpulse-dev \
         libasound2-dev \
         libvorbis-dev \
@@ -25,8 +26,13 @@ RUN apt-get update && \
         wget && \
     rm -rf /var/lib/apt/lists/*
 
-# Build and install Snapcast client from latest stable v0.32.3 (matching server version)
-RUN git clone --depth 1 --branch v0.32.3 https://github.com/badaix/snapcast.git && \
+# Build and install Snapcast client: dynamically resolve the latest stable
+# release tag from GitHub (matching the server, both always build from the
+# same "latest" tag so client/server versions never drift apart).
+RUN SNAPCAST_VERSION=$(curl -sL https://api.github.com/repos/badaix/snapcast/releases/latest | \
+      grep -oP '"tag_name":\s*"\K[^"]+') && \
+    echo "Building snapcast client ${SNAPCAST_VERSION}" && \
+    git clone --depth 1 --branch "${SNAPCAST_VERSION}" https://github.com/badaix/snapcast.git && \
     cd snapcast && \
     mkdir build && cd build && \
     cmake .. && \
@@ -34,7 +40,7 @@ RUN git clone --depth 1 --branch v0.32.3 https://github.com/badaix/snapcast.git 
     make install
 
 # --- Final image ---
-FROM debian:bullseye-slim
+FROM debian:trixie-slim
 
 WORKDIR /usr/src
 
@@ -42,18 +48,18 @@ WORKDIR /usr/src
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libpulse0 \
-        libasound2 \
+        libasound2t64 \
         libasound2-plugins \
         libvorbis0a \
-        libflac8 \
+        libflac14 \
         libopus0 \
         libsoxr0 \
         libavahi-client3 \
-        libssl1.1 \
-        libfmt7 \
-        libspdlog1 \
+        libssl3t64 \
+        libfmt10 \
+        libspdlog1.15 \
         libexpat1 \
-        libboost-system1.74.0 \
+        libboost-system1.88.0 \
         wget \
         curl \
         iproute2 && \

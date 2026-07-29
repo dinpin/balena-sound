@@ -2,6 +2,7 @@ version: "2"
 
 volumes:
   spotifycache:
+  plexcache:
 
 services:
   # Core services
@@ -74,6 +75,21 @@ services:
   #   network_mode: host
   #   labels:
   #     io.balena.features.dbus: 1
+
+  # plex:
+  #   build: ./plugins/plex
+  #   restart: on-failure
+  #   privileged: true
+  #   network_mode: host
+  #   volumes:
+  #     - plexcache:/var/cache/plex-mpv-shim
+  #   environment:
+  #     # No login/token required - plex-mpv-shim uses local GDM discovery
+  #     # to register with a Plex Media Server on the same LAN.
+  #     # If it doesn't appear as a cast target, check that your Plex Media
+  #     # Server has "Enable local network discovery (GDM)" turned on under
+  #     # Settings -> Network.
+  #     SOUND_DEVICE_NAME: ""
 
   # https://github.com/balenablocks/hostname
   hostname:

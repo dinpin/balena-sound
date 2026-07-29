@@ -1,5 +1,5 @@
 # Build stage
-FROM debian:bookworm-slim AS builder
+FROM debian:trixie-slim AS builder
 
 # Install build dependencies - following official shairport-sync BUILD.md guide
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -51,7 +51,7 @@ RUN git clone --depth 1 https://github.com/mikebrady/nqptp.git /tmp/nqptp && \
     make install-strip
 
 # Runtime stage - use same Debian base for consistency
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 WORKDIR /usr/src
 
@@ -65,7 +65,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     supervisor \
     curl \
     # ALSA bridge dependencies
-    libasound2 \
+    libasound2t64 \
     libasound2-plugins \
     libpulse0 \
     # Runtime dependencies for our compiled binaries
@@ -76,15 +76,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpopt0 \
     openssl \
     libsoxr0 \
-    libconfig9 \
-    libplist3 \
+    libconfig11 \
+    libplist-2.0-4 \
     libsodium23 \
     util-linux \
     libgcrypt20 \
-    libavutil57 \
-    libavcodec59 \
-    libavformat59 \
-    libswresample4 \
+    libavutil59 \
+    libavcodec61 \
+    libavformat61 \
+    libswresample5 \
     && rm -rf /var/lib/apt/lists/*
 
 # Set up ALSA bridge for PulseAudio connectivity

@@ -1,4 +1,4 @@
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 WORKDIR /usr/src
 
@@ -9,15 +9,15 @@ ENV DBUS_SYSTEM_BUS_ADDRESS=unix:path=/host/run/dbus/system_bus_socket
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
-    libasound2 \
+    libasound2t64 \
     libasound2-plugins \
     libpulse0 \
     libavahi-client3 \
     libavahi-common3 \
     libdbus-1-3 \
-    libssl3 \
+    libssl3t64 \
     libportaudio2 \
-    libflac++10 \
+    libflac++11 \
     alsa-utils \
     dbus \
     avahi-daemon \
