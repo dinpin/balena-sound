@@ -51,36 +51,36 @@ export default class SoundConfig {
         switch (this.mode) {
           case SoundModes.MULTI_ROOM:
             // start
-            startBalenaService('multiroom-server')
+            // startBalenaService('multiroom-server')
             startBalenaService('multiroom-client')
-            startBalenaService('airplay')
+            // startBalenaService('airplay')
             startBalenaService('spotify')
             startBalenaService('upnp')
-            startBalenaService('bluetooth')
+            // startBalenaService('bluetooth')
 
             this.audioBlock.moveSinkInput(0, 3)
             break
           case SoundModes.MULTI_ROOM_CLIENT:
             // stop
-            stopBalenaService('multiroom-server')
-            stopBalenaService('airplay')
+            // stopBalenaService('multiroom-server')
+            // stopBalenaService('airplay')
             stopBalenaService('spotify')
             stopBalenaService('upnp')
-            stopBalenaService('bluetooth')
+            // stopBalenaService('bluetooth')
             
             // start
             startBalenaService('multiroom-client')
             break
           case SoundModes.STANDALONE:
             // stop
-            stopBalenaService('multiroom-server')
+            // stopBalenaService('multiroom-server')
             stopBalenaService('multiroom-client')
 
             // start
-            startBalenaService('airplay')
+            // startBalenaService('airplay')
             startBalenaService('spotify')
             startBalenaService('upnp')
-            startBalenaService('bluetooth')
+            // startBalenaService('bluetooth')
             
             this.audioBlock.moveSinkInput(0, 2)
             break
