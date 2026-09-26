@@ -13,6 +13,16 @@ Some features of balenaSound can be configured by using variables. Depending on 
 
 You can read more about variables [here](https://www.balena.io/docs/learn/manage/serv-vars/#fleet-environment-and-service-variables).
 
+## Raspberry Pi activity LED
+
+To turn off the onboard activity (ACT) LED after boot on a Raspberry Pi Zero 2 W, set this as a **device variable** in the balenaCloud dashboard (fleet → device → Device variables → All services):
+
+| Variable | Value |
+| --- | --- |
+| `BALENA_HOST_CONFIG_dtparam` | `"act_led_trigger=none"` |
+
+balenaOS applies this setting to the Raspberry Pi boot configuration and reboots the device. Set it on the individual Zero 2 W device rather than fleet-wide if the fleet also contains other device types. To restore the default activity behavior, remove the variable.
+
 ## General
 
 The following variables apply to balenaSound in general, modifying its behavior across the board:
