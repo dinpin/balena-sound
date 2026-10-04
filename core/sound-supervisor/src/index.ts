@@ -6,7 +6,7 @@ import { constants } from './constants'
 import { getSdk } from 'balena-sdk'
 import { onSinkPlaybackStarted, onSinkPlaybackStopped } from './PlaybackState'
 
-const Bonjour: any = require('bonjour-service')
+const { Bonjour }: any = require('bonjour-service')
 
 // balenaSound core
 const config: SoundConfig = new SoundConfig()
