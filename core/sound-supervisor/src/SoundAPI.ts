@@ -7,6 +7,7 @@ import * as asyncHandler from 'express-async-handler'
 import { constants } from './constants'
 import { restartDevice, rebootDevice, shutdownDevice } from './utils'
 import { getSdk, BalenaSDK } from 'balena-sdk'
+import { activeAudioSinks, playbackStateKnown } from './PlaybackState'
 
 export default class SoundAPI {
   private api: Application
@@ -49,6 +50,9 @@ export default class SoundAPI {
     this.api.get('/audio/volume', asyncHandler(async (_req, res) => res.json(await this.audioBlock.getVolume())))
     this.api.post('/audio/volume', asyncHandler(async (req, res) => res.json(await this.audioBlock.setVolume(req.body.volume))))
     this.api.get('/audio/sinks', asyncHandler(async (_req, res) => res.json(stringify(await this.audioBlock.getSinks()))))
+    this.api.get('/audio/playback', (_req, res) => {
+      res.json({ playing: playbackStateKnown ? activeAudioSinks.size > 0 : null })
+    })
 
     // Device management
     this.api.post('/device/restart', asyncHandler(async (_req, res) => res.json(await restartDevice())))

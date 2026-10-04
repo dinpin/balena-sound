@@ -4,6 +4,7 @@ import SoundAPI from './SoundAPI'
 import SoundConfig from './SoundConfig'
 import { constants } from './constants'
 import { getSdk } from 'balena-sdk'
+import { onSinkPlaybackStarted, onSinkPlaybackStopped } from './PlaybackState'
 
 // balenaSound core
 const config: SoundConfig = new SoundConfig()
@@ -51,6 +52,7 @@ async function init() {
 // On audio playback, set this server as the multiroom-master
 // We check the input sink that receives all audio sources
 audioBlock.on('play', async (sink: any) => {
+  onSinkPlaybackStarted(sink.name)
   if (constants.debug) {
     console.log(`[event] Audio block: play`)
     console.log(sink)
@@ -67,7 +69,13 @@ audioBlock.on('play', async (sink: any) => {
   } catch (error) {
     console.log(error.message)
   }
+})
 
+// Event: "stop"
+// Source: audio block
+// Keep playback active while any other sink is still playing.
+audioBlock.on('stop', (sink: any) => {
+  onSinkPlaybackStopped(sink.name)
 })
 
 // Event: "fleet-update"
