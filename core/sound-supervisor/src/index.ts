@@ -6,6 +6,8 @@ import { constants } from './constants'
 import { getSdk } from 'balena-sdk'
 import { onSinkPlaybackStarted, onSinkPlaybackStopped } from './PlaybackState'
 
+const Bonjour: any = require('bonjour-service')
+
 // balenaSound core
 const config: SoundConfig = new SoundConfig()
 const audioBlock: BalenaAudio = new BalenaAudio(`tcp:${config.device.ip}:4317`)
@@ -29,6 +31,19 @@ const fleetSubscriber: cote.Subscriber = new cote.Subscriber({ name: 'balenaSoun
 init()
 async function init() {
   await soundAPI.listen(constants.port)
+  const bonjour = new Bonjour({}, (error: Error) => {
+    console.error(`mDNS initialization failed: ${error.message}`)
+  })
+  const deviceUuid = process.env.BALENA_DEVICE_UUID
+  if (deviceUuid) {
+    bonjour.publish({
+      name: `balenaSound-${deviceUuid}`,
+      type: 'balenasound',
+      port: constants.port,
+      txt: { uuid: deviceUuid }
+    })
+    console.log(`Advertising balenaSound supervisor over mDNS for ${deviceUuid}`)
+  }
   await audioBlock.listen()
   await audioBlock.setVolume(constants.volume)
 
