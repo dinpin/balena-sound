@@ -5,6 +5,7 @@ import SoundConfig from './SoundConfig'
 import { constants } from './constants'
 import { getSdk } from 'balena-sdk'
 import { onSinkPlaybackStarted, onSinkPlaybackStopped } from './PlaybackState'
+import { getDefaultRouteIPAddress } from './utils'
 
 const { Bonjour }: any = require('bonjour-service')
 
@@ -36,13 +37,18 @@ async function init() {
   })
   const deviceUuid = process.env.BALENA_DEVICE_UUID
   if (deviceUuid) {
+    const txt: { uuid: string; ip_address?: string } = { uuid: deviceUuid }
+    const deviceAddress = getDefaultRouteIPAddress()
+    if (deviceAddress) {
+      txt.ip_address = deviceAddress
+    }
     bonjour.publish({
       name: `balenaSound-${deviceUuid}`,
       type: 'balenasound',
       port: constants.port,
-      txt: { uuid: deviceUuid }
+      txt
     })
-    console.log(`Advertising balenaSound supervisor over mDNS for ${deviceUuid}`)
+    console.log(`Advertising balenaSound supervisor over mDNS for ${deviceUuid} at ${txt.ip_address ?? 'interface discovery'}`)
   }
   await audioBlock.listen()
   await audioBlock.setVolume(constants.volume)
