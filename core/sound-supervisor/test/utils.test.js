@@ -1,7 +1,7 @@
 'use strict'
 
 const assert = require('assert')
-const { getDefaultRouteInterface } = require('../build/utils')
+const { getBalenaDeviceName, getDefaultRouteInterface } = require('../build/utils')
 
 const routeTable = [
   'Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT',
@@ -10,6 +10,17 @@ const routeTable = [
   'eth0 00000000 0100A8C0 0000 0 0 1 00000000 0 0 0',
   'eth0 0001A8C0 00000000 0001 0 0 0 00FFFFFF 0 0 0'
 ].join('\n')
+
+assert.strictEqual(
+  getBalenaDeviceName({ BALENA_DEVICE_NAME_AT_INIT: 'Living Room' }),
+  'Living Room'
+)
+assert.strictEqual(getBalenaDeviceName({ BALENA_DEVICE_NAME: 'Kitchen' }), 'Kitchen')
+assert.strictEqual(
+  getBalenaDeviceName({ BALENA_DEVICE_NAME_AT_INIT: '  ', BALENA_DEVICE_NAME: 'Kitchen' }),
+  'Kitchen'
+)
+assert.strictEqual(getBalenaDeviceName({}), null)
 
 assert.strictEqual(getDefaultRouteInterface(routeTable), 'wlan0')
 assert.strictEqual(getDefaultRouteInterface('Iface Destination Gateway Flags RefCnt Use Metric Mask'), null)
