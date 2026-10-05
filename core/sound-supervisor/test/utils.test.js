@@ -11,15 +11,12 @@ const routeTable = [
   'eth0 0001A8C0 00000000 0001 0 0 0 00FFFFFF 0 0 0'
 ].join('\n')
 
+assert.strictEqual(getBalenaDeviceName({ SOUND_DEVICE_NAME: 'Device Name' }), 'Device Name')
 assert.strictEqual(
-  getBalenaDeviceName({ BALENA_DEVICE_NAME_AT_INIT: 'Living Room' }),
-  'Living Room'
+  getBalenaDeviceName({ SOUND_DEVICE_NAME: '  Device Name  ' }),
+  'Device Name'
 )
-assert.strictEqual(getBalenaDeviceName({ BALENA_DEVICE_NAME: 'Kitchen' }), 'Kitchen')
-assert.strictEqual(
-  getBalenaDeviceName({ BALENA_DEVICE_NAME_AT_INIT: '  ', BALENA_DEVICE_NAME: 'Kitchen' }),
-  'Kitchen'
-)
+assert.strictEqual(getBalenaDeviceName({ SOUND_DEVICE_NAME: '  ' }), null)
 assert.strictEqual(getBalenaDeviceName({}), null)
 
 assert.strictEqual(getDefaultRouteInterface(routeTable), 'wlan0')
