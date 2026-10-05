@@ -47,7 +47,7 @@ async function init() {
       txt.ip_address = deviceAddress
     }
     bonjour.publish({
-      name: deviceName || `balenaSound-${deviceUuid}`,
+      name: deviceName ? `${deviceName}-${deviceUuid}` : `balenaSound-${deviceUuid}`,
       type: 'balenasound',
       port: constants.port,
       txt,
