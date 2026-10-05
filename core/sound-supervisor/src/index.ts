@@ -4,6 +4,10 @@ import SoundAPI from './SoundAPI'
 import SoundConfig from './SoundConfig'
 import { constants } from './constants'
 import { getSdk } from 'balena-sdk'
+import { onSinkPlaybackStarted, onSinkPlaybackStopped } from './PlaybackState'
+import { getDefaultRouteIPAddress } from './utils'
+
+const { Bonjour }: any = require('bonjour-service')
 
 // balenaSound core
 const config: SoundConfig = new SoundConfig()
@@ -28,6 +32,24 @@ const fleetSubscriber: cote.Subscriber = new cote.Subscriber({ name: 'balenaSoun
 init()
 async function init() {
   await soundAPI.listen(constants.port)
+  const bonjour = new Bonjour({}, (error: Error) => {
+    console.error(`mDNS initialization failed: ${error.message}`)
+  })
+  const deviceUuid = process.env.BALENA_DEVICE_UUID
+  if (deviceUuid) {
+    const txt: { uuid: string; ip_address?: string } = { uuid: deviceUuid }
+    const deviceAddress = getDefaultRouteIPAddress()
+    if (deviceAddress) {
+      txt.ip_address = deviceAddress
+    }
+    bonjour.publish({
+      name: `balenaSound-${deviceUuid}`,
+      type: 'balenasound',
+      port: constants.port,
+      txt
+    })
+    console.log(`Advertising balenaSound supervisor over mDNS for ${deviceUuid} at ${txt.ip_address ?? 'interface discovery'}`)
+  }
   await audioBlock.listen()
   await audioBlock.setVolume(constants.volume)
 
@@ -51,6 +73,7 @@ async function init() {
 // On audio playback, set this server as the multiroom-master
 // We check the input sink that receives all audio sources
 audioBlock.on('play', async (sink: any) => {
+  onSinkPlaybackStarted(sink.name)
   if (constants.debug) {
     console.log(`[event] Audio block: play`)
     console.log(sink)
@@ -67,7 +90,13 @@ audioBlock.on('play', async (sink: any) => {
   } catch (error) {
     console.log(error.message)
   }
+})
 
+// Event: "stop"
+// Source: audio block
+// Keep playback active while any other sink is still playing.
+audioBlock.on('stop', (sink: any) => {
+  onSinkPlaybackStopped(sink.name)
 })
 
 // Event: "fleet-update"

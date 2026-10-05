@@ -1,5 +1,31 @@
 import * as os from 'os'
+import * as fs from 'fs'
 import axios, { AxiosResponse } from 'axios'
+
+export function getDefaultRouteInterface(routeTable: string): string | null {
+  const routes = routeTable
+    .trim()
+    .split('\n')
+    .slice(1)
+    .map(line => line.trim().split(/\s+/))
+    .filter(fields => fields.length >= 7 && fields[1] === '00000000' && (parseInt(fields[3], 16) & 1) !== 0)
+    .sort((a, b) => parseInt(a[6], 10) - parseInt(b[6], 10))
+
+  return routes[0]?.[0] ?? null
+}
+
+export function getDefaultRouteIPAddress(): string | null {
+  let routeTable: string
+  try {
+    routeTable = fs.readFileSync('/proc/net/route', 'utf8')
+  } catch (_error) {
+    return null
+  }
+
+  const interfaceName = getDefaultRouteInterface(routeTable)
+  const addresses = interfaceName ? os.networkInterfaces()[interfaceName] ?? [] : []
+  return addresses.find(address => !address.internal && address.family === 'IPv4')?.address ?? null
+}
 
 export function getIPAddresses(): string[] {
   let networkInterfaces: object = os.networkInterfaces()

@@ -7,6 +7,7 @@
     "start": "node build/index.js",
     "clean": "rm -rf build",
     "build": "npm run clean && tsc --project tsconfig.json && cp -R src/ui build/ui",
+    "test": "npm run build && node test/utils.test.js && node test/playback-state.test.js",
     "watch": "tsc --watch --project tsconfig.json",
     "livepush": "nodemon --watch src -e js,ts,json --exec node -r ts-node/register/transpile-only src/index.ts"
   },
@@ -17,6 +18,7 @@
     "axios": "^0.24.0",
     "balena-audio": "0.0.2",
     "balena-sdk": "^15.39.1",
+    "bonjour-service": "1.2.1",
     "cote": "^1.0.0",
     "express": "^4.17.1",
     "express-async-handler": "~1.1.4",
