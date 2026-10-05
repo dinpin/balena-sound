@@ -5,7 +5,7 @@ import SoundConfig from './SoundConfig'
 import { constants } from './constants'
 import { getSdk } from 'balena-sdk'
 import { onSinkPlaybackStarted, onSinkPlaybackStopped } from './PlaybackState'
-import { getDefaultRouteIPAddress } from './utils'
+import { getBalenaDeviceName, getDefaultRouteIPAddress } from './utils'
 
 const { Bonjour }: any = require('bonjour-service')
 
@@ -37,7 +37,11 @@ async function init() {
   })
   const deviceUuid = process.env.BALENA_DEVICE_UUID
   if (deviceUuid) {
-    const txt: { uuid: string; ip_address?: string } = { uuid: deviceUuid }
+    const txt: { uuid: string; device_name?: string; ip_address?: string } = { uuid: deviceUuid }
+    const deviceName = getBalenaDeviceName()
+    if (deviceName) {
+      txt.device_name = deviceName
+    }
     const deviceAddress = getDefaultRouteIPAddress()
     if (deviceAddress) {
       txt.ip_address = deviceAddress
