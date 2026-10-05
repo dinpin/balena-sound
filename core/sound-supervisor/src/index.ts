@@ -47,10 +47,11 @@ async function init() {
       txt.ip_address = deviceAddress
     }
     bonjour.publish({
-      name: `balenaSound-${deviceUuid}`,
+      name: deviceName || `balenaSound-${deviceUuid}`,
       type: 'balenasound',
       port: constants.port,
-      txt
+      txt,
+      disableIPv6: true
     })
     console.log(`Advertising balenaSound supervisor over mDNS for ${deviceUuid} at ${txt.ip_address ?? 'interface discovery'}`)
   }
