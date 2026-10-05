@@ -5,7 +5,7 @@ import axios, { AxiosResponse } from 'axios'
 export function getBalenaDeviceName(
   env: NodeJS.ProcessEnv = process.env
 ): string | null {
-  return env.BALENA_DEVICE_NAME_AT_INIT?.trim() || env.BALENA_DEVICE_NAME?.trim() || null
+  return env.SOUND_DEVICE_NAME?.trim() || null
 }
 
 export function getDefaultRouteInterface(routeTable: string): string | null {
