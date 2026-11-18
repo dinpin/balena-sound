@@ -25,7 +25,7 @@ Spotify Connect requires a premium account. There is two methods of authenticati
 
 Manual authentication will let you stream audio over the internet from a client that is on a different network than the balenaSound device. This is useful if your balenaSound device is on a separate WiFi network that's harder to reach (e.g. a backyard network).
 
-This full-stack test branch uses Soloist in the existing `spotify` service slot, preserving sound-supervisor mode management. Set `SOLOIST_API_KEY` as a balena device or fleet variable. `SOLOIST_VERBOSE=true` enables detailed logs. `SOUND_VOLUME` controls the audio block and Soloist startup volume; this branch defaults it to 100. Soloist state persists in the `soloistdata` volume.
+This full-stack test branch uses Soloist in the existing `spotify` service slot, preserving sound-supervisor mode management. Set `SOLOIST_API_KEY` as a balena device or fleet variable; balena injects it directly into the service. `SOLOIST_VERBOSE` is a balena variable and defaults to `false`. `SOUND_VOLUME` controls Soloist startup volume; set `AUDIO_VOLUME` separately for the audio block output. Both default to `100`. Soloist state persists in the `soloistdata` volume.
 
 ## Installable
 

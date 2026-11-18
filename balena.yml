@@ -19,6 +19,8 @@ assets:
 data:
   applicationEnvironmentVariables:
     - SOUND_VOLUME: 100
+    - AUDIO_VOLUME: 100
+    - SOLOIST_VERBOSE: false
     - AUDIO_OUTPUT: AUTO
   defaultDeviceType: raspberry-pi
   supportedDeviceTypes:
