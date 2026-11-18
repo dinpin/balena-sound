@@ -9,7 +9,7 @@ We want to avoid deploying all installable plugins by default because of (a) inc
 
 The following plugins ship with balenaSound out of the box:
 
-- Spotify Connect
+- Spotify Connect (Soloist on this test branch)
 - Bluetooth
 - AirPlay2
 - Soundcard input (Requires setting `SOUND_ENABLE_SOUNDCARD_INPUT`, see [details](customization#plugins))
@@ -24,6 +24,12 @@ Spotify Connect requires a premium account. There is two methods of authenticati
 - manual: providing user and password via variables, see [customization](customization#plugins) section for details.
 
 Manual authentication will let you stream audio over the internet from a client that is on a different network than the balenaSound device. This is useful if your balenaSound device is on a separate WiFi network that's harder to reach (e.g. a backyard network).
+
+### Soloist alternative
+
+This test branch runs Soloist as its Spotify Connect service. Configure `SOLOIST_API_KEY` as a balena device or fleet variable. The service downloads its architecture-specific executable when it starts and refreshes it after exits and every 45 days. Its `/data` volume preserves Soloist state across container restarts. Set `SOLOIST_VERBOSE` to `true` to enable verbose logs; it defaults to `false`.
+
+Soloist uses host networking and the same PulseAudio endpoint as the previous librespot service. The service mounts the named `soloistdata` volume at `/data`.
 
 ## Installable
 
