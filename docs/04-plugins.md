@@ -27,7 +27,7 @@ Manual authentication will let you stream audio over the internet from a client 
 
 ### Soloist alternative
 
-This test branch runs Soloist as its Spotify Connect service. Configure `SOLOIST_API_KEY` as a balena device or fleet variable. The service downloads its architecture-specific executable when it starts and refreshes it after exits and every 45 days. Its `/data` volume preserves Soloist state across container restarts. Set `SOLOIST_VERBOSE` to `true` to enable verbose logs; it defaults to `false`.
+This test branch runs Soloist as its Spotify Connect implementation under the `spotify` service name so sound-supervisor can manage it. Configure `SOLOIST_API_KEY` as a balena device or fleet variable. The service downloads its architecture-specific executable when it starts and refreshes it after exits and every 45 days. Its `/data` volume preserves Soloist state across container restarts. Set `SOLOIST_VERBOSE` to `true` to enable verbose logs; it defaults to `false`.
 
 Soloist uses host networking and the same PulseAudio endpoint as the previous librespot service. The service mounts the named `soloistdata` volume at `/data`.
 

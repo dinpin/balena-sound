@@ -66,8 +66,8 @@ services:
   #   labels:
   #     io.balena.features.dbus: 1
 
-  # This branch tests Soloist instead of the default librespot-based service.
-  soloist:
+  # Soloist replaces librespot; retain `spotify` so sound-supervisor can manage it.
+  spotify:
     build: ./plugins/soloist
     restart: on-failure
     privileged: true
