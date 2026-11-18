@@ -1,7 +1,7 @@
 version: "2"
 
 volumes:
-  spotifycache:
+  soloistdata:
   plexcache:
 
 services:
@@ -11,6 +11,8 @@ services:
   audio:
     build: ./core/audio
     privileged: true
+    environment:
+      AUDIO_VOLUME: ${SOUND_VOLUME:-100}
     labels:
       io.balena.features.dbus: 1
     ports:
@@ -60,13 +62,18 @@ services:
     labels:
       io.balena.features.dbus: 1
 
+  # Keep the service name `spotify`; sound-supervisor manages this service by name.
   spotify:
-    build: ./plugins/spotify
+    build: ./plugins/soloist
     restart: on-failure
     privileged: true
     network_mode: host
     volumes:
-      - spotifycache:/var/cache/raspotify
+      - soloistdata:/data
+    environment:
+      SOLOIST_API_KEY: ${SOLOIST_API_KEY}
+      SOLOIST_VERBOSE: ${SOLOIST_VERBOSE:-false}
+      SOUND_VOLUME: ${SOUND_VOLUME:-100}
 
   # tidal:
   #   build: ./plugins/tidal

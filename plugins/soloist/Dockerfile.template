@@ -1,0 +1,13 @@
+FROM debian:trixie-slim
+
+ENV PULSE_SERVER=tcp:localhost:4317
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl libpulse0 pipewire-bin tar \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+VOLUME /data
+ENTRYPOINT ["/entrypoint.sh"]
