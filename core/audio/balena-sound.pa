@@ -1,10 +1,9 @@
 # See https://github.com/iotsound/iotsound/blob/master/docs/ARCHITECTURE.md for details
 
-# Use Spotify Lossless's maximum format throughout the virtual audio path:
-# 44.1 kHz, stereo, signed 24-bit PCM stored in 32-bit words.
-load-module module-null-sink sink_name=balena-sound.input format=s24-32le rate=44100 channels=2
-load-module module-null-sink sink_name=balena-sound.output format=s24-32le rate=44100 channels=2
-load-module module-null-sink sink_name=snapcast format=s24-32le rate=44100 channels=2
+# Create balena-sound sinks
+load-module module-null-sink sink_name=balena-sound.input
+load-module module-null-sink sink_name=balena-sound.output
+load-module module-null-sink sink_name=snapcast
 
 # Route all plugin input to the default sink
 set-default-sink balena-sound.input
