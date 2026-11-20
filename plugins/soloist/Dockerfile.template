@@ -3,7 +3,8 @@ FROM debian:trixie-slim
 ENV PULSE_SERVER=tcp:localhost:4317
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl libpulse0 pipewire-bin tar \
+    ca-certificates curl file libc6 libgcc-s1 libstdc++6 \
+    libpulse0 pipewire-bin tar \
   && rm -rf /var/lib/apt/lists/*
 
 COPY entrypoint.sh /entrypoint.sh

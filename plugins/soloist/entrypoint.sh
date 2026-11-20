@@ -1,12 +1,25 @@
 #!/bin/sh
 set -u
 
-case "$(uname -m)" in
-  x86_64) ARCH=x86_64 ;;
-  aarch64) ARCH=arm64 ;;
-  armv7l) ARCH=arm32 ;;
-  *) echo "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
+MACHINE=$(uname -m)
+if command -v dpkg >/dev/null 2>&1; then
+  DEBIAN_ARCH=$(dpkg --print-architecture 2>/dev/null || true)
+else
+  DEBIAN_ARCH=
+fi
+
+case "${DEBIAN_ARCH:-$MACHINE}" in
+  amd64|x86_64) ARCH=x86_64 ;;
+  arm64|aarch64) ARCH=arm64 ;;
+  armhf|armel|armv7l|armv6l|armv8l) ARCH=arm32 ;;
+  i386|i686) ARCH=x86_64 ;;
+  *)
+    echo "Unsupported architecture: native=$DEBIAN_ARCH kernel=$MACHINE" >&2
+    exit 1
+    ;;
 esac
+
+echo "Running native $DEBIAN_ARCH on kernel $MACHINE; using Soloist $ARCH build"
 
 URL="https://soloist-builds.spotifycdn.com/soloist_release_${ARCH}.tar.gz"
 BIN=/data/bin/soloist
@@ -22,15 +35,30 @@ mkdir -p /data/bin "$STATE_DIRECTORY" "$CACHE_DIRECTORY"
 fetch() {
   tmp=$(mktemp -d /data/.soloist-download.XXXXXX) || return 1
   if curl -fsSL -o "$tmp/soloist.tar.gz" "$URL" \
-     && tar -xzf "$tmp/soloist.tar.gz" -C "$tmp" \
-     && [ -x "$tmp/soloist" ] \
-     && "$tmp/soloist" --version >/dev/null; then
-    if mv "$tmp/soloist" "$BIN.new" && mv "$BIN.new" "$BIN"; then
-      rc=0
-    else
+     && tar -xzf "$tmp/soloist.tar.gz" -C "$tmp"; then
+    candidate=$(find "$tmp" -type f -name soloist -perm -111 | head -n 1)
+    if [ -z "$candidate" ]; then
+      echo "Soloist archive did not contain an executable named soloist" >&2
       rc=1
+    else
+      echo "Downloaded binary: $(file "$candidate" 2>/dev/null || true)"
+      if "$candidate" --version >/dev/null 2>&1; then
+        if mv "$candidate" "$BIN.new" && mv "$BIN.new" "$BIN"; then
+          rc=0
+        else
+          echo "Failed to install downloaded Soloist binary" >&2
+          rc=1
+        fi
+      else
+        echo "Downloaded Soloist binary cannot start; missing native libraries or wrong architecture" >&2
+        if command -v ldd >/dev/null 2>&1; then
+          ldd "$candidate" >&2 || true
+        fi
+        rc=1
+      fi
     fi
   else
+    echo "Failed to download or extract $URL" >&2
     rc=1
   fi
   rm -rf "$tmp"
