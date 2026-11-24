@@ -4,7 +4,12 @@ import SoundAPI from './SoundAPI'
 import SoundConfig from './SoundConfig'
 import { constants } from './constants'
 import { getSdk } from 'balena-sdk'
-import { onSinkPlaybackStarted, onSinkPlaybackStopped } from './PlaybackState'
+import {
+  onPlaybackStreamChanged,
+  onPlaybackStreamRemoved,
+  onPlaybackStreamsChanged,
+  PlaybackStream
+} from './PlaybackState'
 import { getBalenaDeviceName, getDefaultRouteIPAddress } from './utils'
 
 const { Bonjour }: any = require('bonjour-service')
@@ -56,6 +61,8 @@ async function init() {
     console.log(`Advertising balenaSound supervisor over mDNS for ${deviceUuid} at ${txt.ip_address ?? 'interface discovery'}`)
   }
   await audioBlock.listen()
+  await syncPlaybackStreams()
+  setInterval(() => { void syncPlaybackStreams() }, 10000).unref()
   await audioBlock.setVolume(constants.volume)
 
   // For multi room, allow cote to establish connections before sending fleet-sync
@@ -78,7 +85,6 @@ async function init() {
 // On audio playback, set this server as the multiroom-master
 // We check the input sink that receives all audio sources
 audioBlock.on('play', async (sink: any) => {
-  onSinkPlaybackStarted(sink.name)
   if (constants.debug) {
     console.log(`[event] Audio block: play`)
     console.log(sink)
@@ -97,12 +103,25 @@ audioBlock.on('play', async (sink: any) => {
   }
 })
 
-// Event: "stop"
-// Source: audio block
-// Keep playback active while any other sink is still playing.
-audioBlock.on('stop', (sink: any) => {
-  onSinkPlaybackStopped(sink.name)
+// Sink-input changes represent source streams (unlike virtual sink state changes).
+audioBlock.on('sinkInput', (event: any) => {
+  if (event.type === 'remove') {
+    onPlaybackStreamRemoved(event.index)
+    return
+  }
+  void audioBlock.getSinkInput(event.index)
+    .then((stream: any) => onPlaybackStreamChanged(stream as PlaybackStream))
+    .catch((error: Error) => console.error(`Failed to read PulseAudio stream ${event.index}: ${error.message}`))
 })
+
+async function syncPlaybackStreams(): Promise<void> {
+  try {
+    const streams = await audioBlock.getSinkInputs()
+    onPlaybackStreamsChanged(streams as PlaybackStream[])
+  } catch (error) {
+    console.error(`Failed to sync PulseAudio playback streams: ${error.message}`)
+  }
+}
 
 // Event: "fleet-update"
 // Source: fleet

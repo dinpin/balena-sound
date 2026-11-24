@@ -1,11 +1,17 @@
-/** Current local playback state, populated by PulseAudio events. */
-export const activeAudioSinks = new Set<string>()
-export let playbackStateKnown = false
+/** PulseAudio corked sink inputs are paused; loopback streams are audio routing. */
+export interface PlaybackStream {
+  index: number
+  driverName?: string
+  unknown4?: boolean
+}
+
+export const activePlaybackStreams = new Set<number>()
+let playbackStateKnown = false
 
 const playbackStateListeners = new Set<(playing: boolean | null) => void>()
 
 export function getPlaybackState(): boolean | null {
-  return playbackStateKnown ? activeAudioSinks.size > 0 : null
+  return playbackStateKnown ? activePlaybackStreams.size > 0 : null
 }
 
 export function subscribePlaybackState(
@@ -22,16 +28,36 @@ function notifyPlaybackState(previousState: boolean | null): void {
   }
 }
 
-export function onSinkPlaybackStarted(name: string): void {
+function isPlaybackActive(stream: PlaybackStream): boolean {
+  return stream.driverName !== 'module-loopback.c' && stream.unknown4 !== true
+}
+
+export function onPlaybackStreamsChanged(streams: PlaybackStream[]): void {
   const previousState = getPlaybackState()
-  activeAudioSinks.add(name)
+  activePlaybackStreams.clear()
+  streams.forEach((stream) => {
+    if (isPlaybackActive(stream)) {
+      activePlaybackStreams.add(stream.index)
+    }
+  })
   playbackStateKnown = true
   notifyPlaybackState(previousState)
 }
 
-export function onSinkPlaybackStopped(name: string): void {
+export function onPlaybackStreamChanged(stream: PlaybackStream): void {
   const previousState = getPlaybackState()
-  activeAudioSinks.delete(name)
+  if (isPlaybackActive(stream)) {
+    activePlaybackStreams.add(stream.index)
+  } else {
+    activePlaybackStreams.delete(stream.index)
+  }
+  playbackStateKnown = true
+  notifyPlaybackState(previousState)
+}
+
+export function onPlaybackStreamRemoved(index: number): void {
+  const previousState = getPlaybackState()
+  activePlaybackStreams.delete(index)
   playbackStateKnown = true
   notifyPlaybackState(previousState)
 }
